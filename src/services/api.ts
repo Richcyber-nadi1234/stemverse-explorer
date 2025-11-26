@@ -1,7 +1,9 @@
 
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000';
+// Use Vite environment variable for API URL, fallback to localhost for development
+// Note: In Vite, env variables must start with VITE_
+const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -28,9 +30,12 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Token expired or invalid
-      localStorage.removeItem('stemverse_token');
-      localStorage.removeItem('stemverse_user');
-      window.location.href = '/login';
+      const currentPath = window.location.hash.replace('#', '');
+      if (currentPath !== '/login' && currentPath !== '/' && currentPath !== '/register') {
+          localStorage.removeItem('stemverse_token');
+          // Optional: Trigger a global logout event or redirect
+          // window.location.href = '/#/login'; 
+      }
     }
     return Promise.reject(error);
   }
