@@ -25,6 +25,7 @@ import { CourseManagement } from './pages/CourseManagement';
 import { ProjectBoard } from './pages/ProjectBoard';
 import { StudentReport } from './pages/StudentReport';
 import { UserManagement } from './pages/UserManagement';
+import { ParentDashboard } from './pages/ParentDashboard';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole, User } from './types';
 import { StudentDashboard } from './pages/StudentDashboard';
@@ -133,6 +134,11 @@ export default function App() {
                 <Route path="/sms" element={<SchoolManagement />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/admin/users" element={<UserManagement />} />
+              </Route>
+
+              {/* Parent Routes */}
+              <Route element={<ProtectedRoute allowedRoles={[UserRole.PARENT]} />}>
+                <Route path="/parent-dashboard" element={<ParentDashboard />} />
               </Route>
 
               {/* Common Authenticated Routes */}

@@ -56,6 +56,26 @@ export const AITutor: React.FC = () => {
     scrollToBottom();
   }, [messages, isOpen, isTyping]);
 
+  // Listen for external triggers (e.g. from Course Player)
+  useEffect(() => {
+    const handleOpenEvent = (e: CustomEvent) => {
+      setIsOpen(true);
+      setIsMinimized(false);
+      
+      if (e.detail && e.detail.context) {
+        const contextMsg = {
+          id: Date.now().toString(),
+          text: `I see you're working on "${e.detail.context}". How can I help you with that?`,
+          sender: 'bot' as const
+        };
+        setMessages(prev => [...prev, contextMsg]);
+      }
+    };
+
+    window.addEventListener('open-ai-tutor', handleOpenEvent as EventListener);
+    return () => window.removeEventListener('open-ai-tutor', handleOpenEvent as EventListener);
+  }, []);
+
   // --- UTILS ---
   const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {

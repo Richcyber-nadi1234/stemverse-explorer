@@ -24,6 +24,8 @@ export interface User {
   coins?: number; // Virtual currency
   badges?: string[];
   active: boolean; // New field for account status
+  verificationDocuments?: string[]; // Names of uploaded files
+  verificationStatus?: 'verified' | 'pending' | 'unverified' | 'rejected';
 }
 
 export interface AuditLogEntry {

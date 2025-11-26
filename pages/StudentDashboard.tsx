@@ -1,7 +1,7 @@
 
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../App';
-import { Trophy, Zap, Star, Calendar, PlayCircle, Target, Award, Brain, BarChart2, Clock, CheckCircle, Medal, ArrowRight, Lock, Video, TrendingUp } from 'lucide-react';
+import { Trophy, Zap, Star, Calendar, PlayCircle, Target, Award, Brain, BarChart2, Clock, CheckCircle, Medal, ArrowRight, Lock, Video, TrendingUp, BookOpen, Activity, ChevronRight, AlertCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { RoadmapItem } from '../types';
@@ -11,6 +11,41 @@ const mockRoadmap: RoadmapItem[] = [
     { id: 'r2', title: 'Python Logic', description: 'Loops and conditionals', status: 'current', type: 'course', recommended_reason: 'Recommended based on Logic Quiz (65%)' },
     { id: 'r3', title: 'Build a Bot', description: 'Final project submission', status: 'locked', type: 'project' },
     { id: 'r4', title: 'Advanced AI', description: 'Neural networks intro', status: 'locked', type: 'course' },
+];
+
+const currentCourses = [
+  {
+    id: 'c1',
+    title: 'Python for Kids',
+    thumbnail: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&q=80&w=400',
+    progress: 65,
+    nextLesson: 'Understanding Loops',
+    totalLessons: 15,
+    completedLessons: 9,
+    color: 'bg-blue-500'
+  },
+  {
+    id: 'c2',
+    title: 'Robotics Fundamentals',
+    thumbnail: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=400',
+    progress: 30,
+    nextLesson: 'Sensors & Motors',
+    totalLessons: 12,
+    completedLessons: 4,
+    color: 'bg-indigo-500'
+  }
+];
+
+const recentActivity = [
+  { id: 1, type: 'lesson', title: 'Completed "Variables"', time: '2 hours ago', xp: 50 },
+  { id: 2, type: 'quiz', title: 'Scored 90% in Logic Quiz', time: 'Yesterday', xp: 100 },
+  { id: 3, type: 'badge', title: 'Earned "Code Ninja"', time: '2 days ago', xp: 0 },
+];
+
+const upcomingDeadlines = [
+    { title: 'Math Mid-Term', time: 'Tomorrow, 2:00 PM', type: 'exam' },
+    { title: 'Python Project', time: 'Friday, 11:59 PM', type: 'assignment' },
+    { title: 'Physics Lab Report', time: 'Mon, 9:00 AM', type: 'assignment' },
 ];
 
 // Centralized Analytics Data based on Time Range
@@ -95,11 +130,11 @@ export const StudentDashboard: React.FC = () => {
                 <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
                 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                    <div className="flex items-center gap-6 w-full md:w-auto">
+                    <div className="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto text-center sm:text-left">
                         {/* Level Circle */}
                         <div className="relative shrink-0 group cursor-pointer transition-transform hover:scale-105">
-                            <div className="w-28 h-28 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 shadow-inner relative">
-                                <Trophy className="w-12 h-12 text-yellow-300 drop-shadow-[0_0_10px_rgba(253,224,71,0.5)]" />
+                            <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 shadow-inner relative mx-auto sm:mx-0">
+                                <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-yellow-300 drop-shadow-[0_0_10px_rgba(253,224,71,0.5)]" />
                                 {/* Circular Progress Border */}
                                 <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                                     <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="4" />
@@ -114,32 +149,32 @@ export const StudentDashboard: React.FC = () => {
                                     />
                                 </svg>
                             </div>
-                            <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 text-sm font-extrabold px-4 py-1 rounded-full border-2 border-indigo-900 shadow-lg whitespace-nowrap">
+                            <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-yellow-900 text-xs sm:text-sm font-extrabold px-3 py-1 sm:px-4 rounded-full border-2 border-indigo-900 shadow-lg whitespace-nowrap">
                                 Level {currentLevel}
                             </div>
                         </div>
 
                         <div>
-                            <h1 className="text-3xl md:text-4xl font-bold mb-2 tracking-tight">Hi, {user.first_name}!</h1>
-                            <div className="flex items-center gap-3 text-indigo-100 text-sm mb-4">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 tracking-tight">Hi, {user.first_name}!</h1>
+                            <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 text-indigo-100 text-xs sm:text-sm mb-4">
                                 <div className="flex items-center bg-indigo-900/40 px-3 py-1 rounded-full border border-indigo-500/30 backdrop-blur-sm">
                                     <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2 shadow-[0_0_8px_#4ade80]"></span>
                                     {user.streak || 0} Day Streak
                                 </div>
-                                <span className="opacity-70">•</span>
+                                <span className="opacity-70 hidden sm:inline">•</span>
                                 <span className="font-medium">{xpToNextLevel - currentXP} XP to Level {currentLevel + 1}</span>
                             </div>
 
                             {/* Stat Pills */}
-                            <div className="flex flex-wrap items-center gap-3 text-sm font-bold">
-                                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
-                                    <Zap className="w-4 h-4 text-yellow-300" /> {user.xp || 0} XP
+                            <div className="flex flex-wrap justify-center sm:justify-start items-center gap-2 sm:gap-3 text-xs sm:text-sm font-bold">
+                                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/10 px-3 py-2 sm:px-4 rounded-xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
+                                    <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-300" /> {user.xp || 0} XP
                                 </div>
-                                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
-                                    <Star className="w-4 h-4 text-orange-300" /> {user.coins || 0} Coins
+                                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/10 px-3 py-2 sm:px-4 rounded-xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
+                                    <Star className="w-3 h-3 sm:w-4 sm:h-4 text-orange-300" /> {user.coins || 0} Coins
                                 </div>
-                                <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
-                                    <Medal className="w-4 h-4 text-purple-300" /> {(user.badges || []).length} Badges
+                                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/10 px-3 py-2 sm:px-4 rounded-xl border border-white/10 hover:bg-white/20 transition-all cursor-default">
+                                    <Medal className="w-3 h-3 sm:w-4 sm:h-4 text-purple-300" /> {(user.badges || []).length} Badges
                                 </div>
                             </div>
                         </div>
@@ -161,11 +196,73 @@ export const StudentDashboard: React.FC = () => {
                 {/* Main Content Column */}
                 <div className="lg:col-span-2 space-y-8">
                     
+                    {/* My Active Courses Section */}
+                    <section>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center">
+                                <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600" /> My Active Courses
+                            </h2>
+                            <button onClick={() => navigate('/lms')} className="text-sm font-bold text-indigo-600 hover:underline flex items-center">
+                                View All <ChevronRight className="w-4 h-4 ml-1" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {currentCourses.map(course => {
+                                const radius = 18;
+                                const circumference = 2 * Math.PI * radius;
+                                const offset = circumference - (course.progress / 100) * circumference;
+                                return (
+                                    <div key={course.id} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition-all flex gap-4 items-center group cursor-pointer" onClick={() => navigate(`/lms/course/${course.id}`)}>
+                                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xl overflow-hidden bg-slate-200">
+                                            <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <PlayCircle className="w-8 h-8 text-white drop-shadow-md" />
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-slate-900 mb-1 truncate text-sm sm:text-base">{course.title}</h3>
+                                            <p className="text-xs text-slate-500 mb-2 truncate">Next: {course.nextLesson}</p>
+                                            
+                                            {/* Enhanced Visual Progress Indicator */}
+                                            <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+                                                <span className="text-slate-700 flex items-center"><Activity className="w-3 h-3 mr-1 text-indigo-500" /> {course.progress}% Complete</span>
+                                                <span className="text-slate-400 font-medium text-[10px]">Lesson {course.completedLessons} of {course.totalLessons}</span>
+                                            </div>
+                                            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                                                <div 
+                                                    className={`h-full ${course.color} transition-all duration-1000 relative`} 
+                                                    style={{ width: `${course.progress}%` }}
+                                                >
+                                                    <div className="absolute top-0 right-0 bottom-0 w-full bg-white/20"></div>
+                                                </div>
+                                            </div>
+                                            
+                                            <button 
+                                                className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center"
+                                            >
+                                                Resume Lesson <ArrowRight className="w-3 h-3 ml-1" />
+                                            </button>
+                                        </div>
+                                        {/* Circular Progress Indicator */}
+                                        <div className="relative w-12 h-12 flex items-center justify-center shrink-0 hidden sm:flex">
+                                            <svg className="w-full h-full transform -rotate-90">
+                                                <circle cx="24" cy="24" r={radius} stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100" />
+                                                <circle cx="24" cy="24" r={radius} stroke="currentColor" strokeWidth="4" fill="transparent" className={`${course.color.replace('bg-', 'text-')}`} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
+                                            </svg>
+                                            <span className="absolute text-[10px] font-bold text-slate-700">{course.progress}%</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+
                     {/* Learning Analytics Section */}
                     <section className="space-y-5">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-slate-900 flex items-center">
-                                <BarChart2 className="w-6 h-6 mr-2 text-indigo-600" /> Learning Analytics
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center">
+                                <BarChart2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600" /> Analytics
                             </h2>
                             <select 
                                 value={timeRange}
@@ -180,7 +277,7 @@ export const StudentDashboard: React.FC = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* XP Activity Chart */}
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-shadow">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow">
                                 <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center justify-between">
                                     XP Growth <span className="text-green-500 text-xs bg-green-50 px-2 py-0.5 rounded">+12%</span>
                                 </h3>
@@ -206,7 +303,7 @@ export const StudentDashboard: React.FC = () => {
                             </div>
 
                             {/* Skill Radar */}
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow flex flex-col">
                                 <div className="flex justify-between items-center mb-2">
                                     <h3 className="text-sm font-bold text-slate-700">Skill Proficiency</h3>
                                     <div className="flex gap-2 text-[10px]">
@@ -241,7 +338,7 @@ export const StudentDashboard: React.FC = () => {
                             </div>
 
                             {/* Course Progress Grouped Bar Chart */}
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-shadow md:col-span-2">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow md:col-span-2">
                                 <h3 className="text-sm font-bold text-slate-700 mb-4">Course Progress vs. Class Average</h3>
                                 <div className="h-64">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -262,20 +359,20 @@ export const StudentDashboard: React.FC = () => {
 
                     {/* AI Roadmap Section */}
                     <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-slate-50 bg-slate-50/50">
-                            <h3 className="font-bold text-slate-900 flex items-center">
+                        <div className="p-4 sm:p-6 border-b border-slate-50 bg-slate-50/50">
+                            <h3 className="font-bold text-slate-900 flex items-center text-sm sm:text-base">
                                 <Target className="w-5 h-5 mr-2 text-indigo-600" /> AI Recommended Path
                             </h3>
                             <p className="text-xs text-slate-500 mt-1">Personalized curriculum based on your recent quiz results.</p>
                         </div>
                         
-                        <div className="p-6 relative">
+                        <div className="p-4 sm:p-6 relative">
                             {/* Timeline Line */}
-                            <div className="absolute left-9 top-8 bottom-8 w-0.5 bg-slate-200/80"></div>
+                            <div className="absolute left-7 sm:left-9 top-8 bottom-8 w-0.5 bg-slate-200/80"></div>
                             <div className="space-y-6">
                                 {mockRoadmap.map((item) => (
-                                    <div key={item.id} className="relative pl-10 group">
-                                        <div className={`absolute left-0 top-0 w-7 h-7 rounded-full flex items-center justify-center border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${
+                                    <div key={item.id} className="relative pl-8 sm:pl-10 group">
+                                        <div className={`absolute left-0 top-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${
                                             item.status === 'completed' ? 'bg-green-500 text-white' :
                                             item.status === 'current' ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' :
                                             'bg-slate-200 text-slate-400'
@@ -284,7 +381,7 @@ export const StudentDashboard: React.FC = () => {
                                              item.status === 'current' ? <PlayCircle className="w-3 h-3" /> :
                                              <Lock className="w-3 h-3" />}
                                         </div>
-                                        <div className={`p-4 rounded-xl border transition-all flex justify-between items-center ${
+                                        <div className={`p-3 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ${
                                             item.status === 'current' 
                                             ? 'bg-indigo-50/50 border-indigo-200 shadow-sm translate-x-1' 
                                             : 'bg-white border-slate-100 hover:border-slate-200'
@@ -301,7 +398,7 @@ export const StudentDashboard: React.FC = () => {
                                                 )}
                                             </div>
                                             {item.status === 'current' && (
-                                                <button onClick={() => navigate('/lms')} className="ml-4 text-indigo-600 bg-white p-2 rounded-full shadow-sm hover:bg-indigo-50 hover:shadow-md transition-all">
+                                                <button onClick={() => navigate('/lms')} className="text-indigo-600 bg-white p-2 rounded-full shadow-sm hover:bg-indigo-50 hover:shadow-md transition-all self-start sm:self-center">
                                                     <ArrowRight className="w-4 h-4" />
                                                 </button>
                                             )}
@@ -352,30 +449,57 @@ export const StudentDashboard: React.FC = () => {
                          </button>
                     </div>
 
-                    {/* Upcoming Schedule */}
+                    {/* Upcoming Deadlines */}
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="font-bold text-slate-900 flex items-center">
-                                <Calendar className="w-5 h-5 mr-2 text-indigo-600" /> Upcoming
+                                <Calendar className="w-5 h-5 mr-2 text-indigo-600" /> Deadlines
                             </h3>
-                            <button className="text-xs font-bold text-indigo-600 hover:underline">View All</button>
+                            <button className="text-xs font-bold text-indigo-600 hover:underline">Calendar</button>
                         </div>
                         <div className="space-y-3">
-                            {[
-                                { title: 'Math Review', time: '2:00 PM', status: 'upcoming' },
-                                { title: 'Python Project', time: 'Tomorrow', status: 'upcoming' },
-                                { title: 'Physics Lab', time: 'Friday', status: 'upcoming' },
-                            ].map((evt, i) => (
+                            {upcomingDeadlines.map((evt, i) => (
                                 <div key={i} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 group">
-                                    <div>
-                                        <h4 className="font-bold text-slate-800 text-sm">{evt.title}</h4>
+                                    <div className="min-w-0">
+                                        <h4 className="font-bold text-slate-800 text-sm truncate">{evt.title}</h4>
                                         <p className="text-xs text-slate-500 flex items-center mt-1">
                                             <Clock className="w-3 h-3 mr-1" /> {evt.time}
                                         </p>
                                     </div>
-                                    <span className="text-xs font-medium text-slate-400 bg-white border border-slate-200 px-3 py-1 rounded-lg group-hover:border-indigo-200 group-hover:text-indigo-500 transition-colors">
-                                        Soon
-                                    </span>
+                                    <div className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide border ${
+                                        evt.type === 'exam' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'
+                                    }`}>
+                                        {evt.type}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Recent Activity Feed */}
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                        <h3 className="font-bold text-slate-900 mb-4 flex items-center">
+                            <Activity className="w-5 h-5 mr-2 text-indigo-600" /> Recent Activity
+                        </h3>
+                        <div className="relative space-y-5 before:absolute before:inset-0 before:ml-3.5 before:w-0.5 before:-translate-x-px before:bg-slate-200 before:h-full">
+                            {recentActivity.map((activity) => (
+                                <div key={activity.id} className="relative flex gap-4 items-start group">
+                                    <div className={`w-7 h-7 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0 z-10 ${
+                                        activity.type === 'badge' ? 'bg-amber-100 text-amber-600' : 
+                                        activity.type === 'quiz' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'
+                                    }`}>
+                                        {activity.type === 'badge' ? <Award className="w-3.5 h-3.5" /> : 
+                                         activity.type === 'quiz' ? <CheckCircle className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-1 group-hover:border-indigo-200 transition-colors">
+                                        <p className="text-sm font-bold text-slate-800">{activity.title}</p>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <span className="text-xs text-slate-400">{activity.time}</span>
+                                            {activity.xp > 0 && (
+                                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">+{activity.xp} XP</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>

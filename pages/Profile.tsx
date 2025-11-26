@@ -1,7 +1,7 @@
 
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../App';
-import { User, Trophy, Star, Zap, Smile, Camera, Save, RefreshCw, Lock, Upload, Image as ImageIcon, Plus, X, Check } from 'lucide-react';
+import { User, Trophy, Star, Zap, Smile, Camera, Save, RefreshCw, Lock, Upload, Image as ImageIcon, Plus, X, Check, AlertTriangle } from 'lucide-react';
 
 const AVATAR_ACCESSORIES = [
   { id: 'none', name: 'None', icon: '🚫', minLevel: 0 },
@@ -89,6 +89,18 @@ export const Profile: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {!user.active && (
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-sm flex items-start animate-in slide-in-from-top-4">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+              <div>
+                  <h4 className="text-amber-800 font-bold text-sm">Account Pending Verification</h4>
+                  <p className="text-amber-700 text-sm mt-1">
+                      Your account is currently limited. Please check your email for verification links or wait for an administrator to approve your credentials.
+                  </p>
+              </div>
+          </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
         <p className="text-slate-500">Manage your identity and customize your STEMverse avatar.</p>

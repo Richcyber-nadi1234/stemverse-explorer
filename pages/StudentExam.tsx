@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Timer, ChevronRight, ChevronLeft, Flag, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Timer, ChevronRight, ChevronLeft, Flag, CheckCircle, AlertTriangle, Bot, List, LayoutGrid, X } from 'lucide-react';
 import { Question } from '../types';
 
 const mockQuestions: Question[] = [
@@ -16,6 +16,7 @@ export const StudentExam: React.FC = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState(3600); // 1 hour
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isGridOpen, setIsGridOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -40,8 +41,14 @@ export const StudentExam: React.FC = () => {
     // Mock API call
     setTimeout(() => {
       alert('Exam Submitted Successfully!');
-      navigate('/dashboard');
+      navigate('/student-dashboard');
     }, 2000);
+  };
+
+  const handleGetHint = () => {
+      window.dispatchEvent(new CustomEvent('open-ai-tutor', { 
+          detail: { context: `Exam Hint: ${mockQuestions[currentQuestionIndex].text}` } 
+      }));
   };
 
   const formatTime = (seconds: number) => {
@@ -67,14 +74,45 @@ export const StudentExam: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center sticky top-0 z-10">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap gap-4 justify-between items-center sticky top-0 z-10">
         <div>
           <h1 className="text-lg font-bold text-slate-900">Mid-Term Assessment</h1>
           <p className="text-sm text-slate-500">Question {currentQuestionIndex + 1} of {mockQuestions.length}</p>
         </div>
-        <div className={`flex items-center px-4 py-2 rounded-lg font-mono font-bold ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
-          <Timer className="w-4 h-4 mr-2" />
-          {formatTime(timeLeft)}
+        
+        <div className="flex items-center gap-3 ml-auto">
+            {/* Dropdown Navigation */}
+            <div className="hidden sm:block">
+                <select
+                    value={currentQuestionIndex}
+                    onChange={(e) => setCurrentQuestionIndex(Number(e.target.value))}
+                    className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2 outline-none cursor-pointer hover:bg-slate-100"
+                >
+                    {mockQuestions.map((q, idx) => (
+                        <option key={q.id} value={idx}>Go to Question {idx + 1}</option>
+                    ))}
+                </select>
+            </div>
+
+            {/* Map Button */}
+            <button 
+                onClick={() => setIsGridOpen(true)}
+                className="flex items-center px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+                <LayoutGrid className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">View Map</span>
+            </button>
+
+            <button 
+                onClick={handleGetHint}
+                className="flex items-center px-3 py-2 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors"
+            >
+                <Bot className="w-4 h-4 mr-1.5" /> Hint
+            </button>
+            <div className={`flex items-center px-4 py-2 rounded-lg font-mono font-bold ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                <Timer className="w-4 h-4 mr-2" />
+                {formatTime(timeLeft)}
+            </div>
         </div>
       </div>
 
@@ -132,21 +170,21 @@ export const StudentExam: React.FC = () => {
             <button
               disabled={currentQuestionIndex === 0}
               onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-              className="px-6 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg disabled:opacity-50 hover:bg-slate-50"
+              className="px-6 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg disabled:opacity-50 hover:bg-slate-50 flex items-center"
             >
-              Previous
+              <ChevronLeft className="w-4 h-4 mr-1" /> Previous
             </button>
             {currentQuestionIndex === mockQuestions.length - 1 ? (
               <button
                 onClick={handleSubmit}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold"
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold shadow-lg shadow-green-200"
               >
                 Submit Exam
               </button>
             ) : (
               <button
                 onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center"
+                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center shadow-lg shadow-indigo-200"
               >
                 Next <ChevronRight className="w-4 h-4 ml-1" />
               </button>
@@ -154,9 +192,9 @@ export const StudentExam: React.FC = () => {
           </div>
         </div>
 
-        {/* Sidebar Navigation */}
-        <div className="space-y-4">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        {/* Sidebar Navigation (Desktop) */}
+        <div className="space-y-4 hidden lg:block">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 sticky top-24">
             <h3 className="font-bold text-sm text-slate-900 mb-3">Question Navigator</h3>
             <div className="grid grid-cols-5 gap-2">
               {mockQuestions.map((q, idx) => (
@@ -165,7 +203,7 @@ export const StudentExam: React.FC = () => {
                   onClick={() => setCurrentQuestionIndex(idx)}
                   className={`w-8 h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-colors ${
                     currentQuestionIndex === idx
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-indigo-600 text-white shadow-md'
                       : answers[q.id]
                       ? 'bg-green-100 text-green-700 border border-green-200'
                       : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -183,6 +221,51 @@ export const StudentExam: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Navigation Modal (Mobile/Tablets) */}
+      {isGridOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <h3 className="font-bold text-slate-900 text-lg">Question Map</h3>
+                    <button onClick={() => setIsGridOpen(false)} className="p-1 hover:bg-slate-100 rounded-full">
+                        <X className="w-5 h-5 text-slate-400" />
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-5 gap-3">
+                    {mockQuestions.map((q, idx) => (
+                        <button
+                            key={q.id}
+                            onClick={() => { setCurrentQuestionIndex(idx); setIsGridOpen(false); }}
+                            className={`h-10 rounded-xl font-bold text-sm transition-all flex items-center justify-center ${
+                                currentQuestionIndex === idx 
+                                ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-200' 
+                                : answers[q.id] 
+                                ? 'bg-green-100 text-green-700 border border-green-200' 
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            }`}
+                        >
+                            {idx + 1}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="pt-2 text-xs text-slate-500 space-y-2 bg-slate-50 p-3 rounded-lg">
+                    <div className="flex items-center"><div className="w-3 h-3 bg-indigo-600 rounded mr-2"></div> Current Question</div>
+                    <div className="flex items-center"><div className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-2"></div> Answered</div>
+                    <div className="flex items-center"><div className="w-3 h-3 bg-slate-100 rounded mr-2"></div> Not Visited</div>
+                </div>
+
+                <button 
+                    onClick={() => setIsGridOpen(false)}
+                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors"
+                >
+                    Return to Exam
+                </button>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

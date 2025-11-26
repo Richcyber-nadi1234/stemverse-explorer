@@ -35,6 +35,7 @@ export const Login: React.FC = () => {
       let roles: UserRole[] = [UserRole.STUDENT];
       let firstName = 'Student';
       let avatarSeed = 'Felix';
+      let isActive = true; // Default
 
       if (email.toLowerCase().includes('admin')) {
         roles = [UserRole.SCHOOL_ADMIN, UserRole.TEACHER]; // Example: Admin is also a Teacher
@@ -48,6 +49,15 @@ export const Login: React.FC = () => {
         roles = [UserRole.TUTOR];
         firstName = 'Tutor';
         avatarSeed = 'Sorelle';
+      } else if (email.toLowerCase().includes('pending')) {
+          // Simulate pending user
+          isActive = false;
+      }
+
+      if (!isActive) {
+          setIsLoading(false);
+          setError("Account pending verification. Please check your email or wait for admin approval.");
+          return;
       }
 
       const mockUser: User = {
@@ -62,7 +72,7 @@ export const Login: React.FC = () => {
         level: roles.includes(UserRole.STUDENT) ? 5 : undefined,
         coins: 450,
         streak: 12,
-        active: true,
+        active: isActive,
         avatarConfig: {
           seed: avatarSeed,
           backgroundColor: 'b6e3f4',
@@ -180,10 +190,11 @@ export const Login: React.FC = () => {
 
           <div className="mt-8">
              <p className="text-xs text-center text-slate-400 uppercase font-bold mb-4">Demo Accounts</p>
-             <div className="grid grid-cols-3 gap-2">
+             <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => setEmail('student@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Student</button>
                 <button onClick={() => setEmail('teacher@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Teacher</button>
                 <button onClick={() => setEmail('admin@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Admin</button>
+                <button onClick={() => setEmail('pending@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Pending (Test)</button>
              </div>
           </div>
 

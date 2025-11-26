@@ -20,7 +20,8 @@ import {
   UserCheck,
   Library,
   Home,
-  GraduationCap
+  GraduationCap,
+  Baby
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { Logo } from './Logo';
@@ -65,19 +66,24 @@ export const Layout: React.FC = () => {
     { name: 'Users & Roles', href: '/admin/users', icon: UserCheck }, 
   ];
 
+  // Parent Navigation
+  const parentNavigation = [
+    { name: 'Parent Dashboard', href: '/parent-dashboard', icon: Baby },
+    { name: 'Marketplace', href: '/marketplace', icon: ShoppingCart },
+  ];
+
   // Determine which navigation to show based on Roles
   let navigation: { name: string; href: string; icon: any }[] = [];
   const roles = user?.roles || [];
 
-  // Simple priority based logic: Admin > Instructor > Student
-  // If user has multiple roles, they get the most privileged view, or a combined view if we prefer.
-  // Here we stick to a hierarchical view for simplicity in navigation clutter.
-  
+  // Simple priority based logic: Admin > Instructor > Student > Parent
   if (roles.includes(UserRole.ADMIN) || roles.includes(UserRole.SCHOOL_ADMIN)) {
       // Admins get admin nav + instructor tools (since they might manage content too)
       navigation = [...adminNavigation, ...instructorNavigation.slice(5)]; 
   } else if (roles.includes(UserRole.TEACHER) || roles.includes(UserRole.TUTOR)) {
       navigation = instructorNavigation;
+  } else if (roles.includes(UserRole.PARENT)) {
+      navigation = parentNavigation;
   } else {
       navigation = studentNavigation; 
   }

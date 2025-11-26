@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles } from 'lucide-react';
+import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles, Bot } from 'lucide-react';
 import { Lesson } from '../types';
 
 const mockLessons: Lesson[] = [
@@ -66,6 +66,12 @@ export const CoursePlayer: React.FC = () => {
       } else {
           navigate('/live');
       }
+  };
+
+  const handleAskInstructor = () => {
+      window.dispatchEvent(new CustomEvent('open-ai-tutor', { 
+          detail: { context: activeLesson.title } 
+      }));
   };
 
   return (
@@ -263,8 +269,11 @@ export const CoursePlayer: React.FC = () => {
         </div>
 
         <div className="p-4 border-t border-slate-700 bg-slate-800">
-            <button className="w-full py-3 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-sm font-bold transition-colors">
-                <MessageCircle className="w-4 h-4" /> Ask Instructor
+            <button 
+                onClick={handleAskInstructor}
+                className="w-full py-3 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-colors shadow-lg"
+            >
+                <Bot className="w-4 h-4" /> Ask Newton (AI Tutor)
             </button>
         </div>
       </div>

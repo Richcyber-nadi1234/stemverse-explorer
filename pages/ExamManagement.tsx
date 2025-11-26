@@ -1,10 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Calendar, Clock, FileText, MoreVertical, Filter, PlayCircle, CheckSquare, X, Save, AlertCircle, Users, MapPin, Trash2, ChevronRight, Search, ChevronDown } from 'lucide-react';
+import { Plus, Calendar, Clock, FileText, MoreVertical, Filter, PlayCircle, CheckSquare, X, Save, AlertCircle, Users, MapPin, Trash2, ChevronRight, Search, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Exam, ExamSlot } from '../types';
 import { useNavigate } from 'react-router-dom';
 
-const mockExams: Exam[] = [
+// Extended Exam Interface for local usage to include scheduling fields
+interface ExtendedExam extends Exam {
+    scheduled_date?: string;
+    scheduled_time?: string;
+}
+
+const mockExams: ExtendedExam[] = [
   {
     id: '1',
     title: 'Mathematics Mid-Term',
@@ -16,7 +22,9 @@ const mockExams: Exam[] = [
     duration_mins: 90,
     status: 'published',
     created_at: '2023-10-01T10:00:00Z',
-    difficulty: 'Medium'
+    difficulty: 'Medium',
+    scheduled_date: '2023-10-15',
+    scheduled_time: '09:00'
   },
   {
     id: '2',
@@ -29,7 +37,9 @@ const mockExams: Exam[] = [
     duration_mins: 120,
     status: 'scheduled',
     created_at: '2023-10-05T14:30:00Z',
-    difficulty: 'Hard'
+    difficulty: 'Hard',
+    scheduled_date: '2023-10-20',
+    scheduled_time: '14:00'
   },
   {
     id: '3',
@@ -55,7 +65,9 @@ const mockExams: Exam[] = [
     duration_mins: 60,
     status: 'closed',
     created_at: '2023-09-20T09:00:00Z',
-    difficulty: 'Medium'
+    difficulty: 'Medium',
+    scheduled_date: '2023-09-25',
+    scheduled_time: '10:00'
   }
 ];
 
@@ -99,7 +111,7 @@ const DifficultyBadge = ({ difficulty }: { difficulty?: 'Easy' | 'Medium' | 'Har
 };
 
 export const ExamManagement: React.FC = () => {
-  const [exams, setExams] = useState<Exam[]>(mockExams);
+  const [exams, setExams] = useState<ExtendedExam[]>(mockExams);
   const [allSlots, setAllSlots] = useState<ExamSlot[]>(mockSlots);
   const navigate = useNavigate();
   
@@ -113,6 +125,10 @@ export const ExamManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
+  // Delete Confirmation State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [examToDelete, setExamToDelete] = useState<string | null>(null);
+
   // Slot Management State
   const [activeExamForSlots, setActiveExamForSlots] = useState<Exam | null>(null);
   const [slotFormData, setSlotFormData] = useState({
@@ -126,7 +142,7 @@ export const ExamManagement: React.FC = () => {
   const [slotConflict, setSlotConflict] = useState<string | null>(null);
 
   // Default Form State
-  const initialFormState: Partial<Exam> = {
+  const initialFormState: Partial<ExtendedExam> = {
       title: '',
       subject_id: '',
       class_id: 'Class 5A',
@@ -134,9 +150,11 @@ export const ExamManagement: React.FC = () => {
       total_marks: 100,
       pass_mark: 50,
       difficulty: 'Medium',
-      status: 'draft'
+      status: 'draft',
+      scheduled_date: '',
+      scheduled_time: ''
   };
-  const [formData, setFormData] = useState<Partial<Exam>>(initialFormState);
+  const [formData, setFormData] = useState<Partial<ExtendedExam>>(initialFormState);
 
   // --- FILTER LOGIC ---
   const availableSubjects = useMemo(() => Array.from(new Set(exams.map(e => e.subject_id))), [exams]);
@@ -160,7 +178,7 @@ export const ExamManagement: React.FC = () => {
       setIsModalOpen(true);
   };
 
-  const handleEdit = (exam: Exam) => {
+  const handleEdit = (exam: ExtendedExam) => {
       setEditingId(exam.id);
       setFormData(exam);
       setIsModalOpen(true);
@@ -173,22 +191,29 @@ export const ExamManagement: React.FC = () => {
       }
 
       if (editingId) {
-          setExams(prev => prev.map(e => e.id === editingId ? { ...e, ...formData } as Exam : e));
+          setExams(prev => prev.map(e => e.id === editingId ? { ...e, ...formData } as ExtendedExam : e));
       } else {
-          const newExam: Exam = {
+          const newExam: ExtendedExam = {
               id: Date.now().toString(),
               created_at: new Date().toISOString(),
               term_id: 'term-1', 
-              ...formData as Exam
+              ...formData as ExtendedExam
           };
           setExams(prev => [newExam, ...prev]);
       }
       setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-      if (window.confirm("Are you sure you want to delete this exam?")) {
-          setExams(prev => prev.filter(e => e.id !== id));
+  const initiateDelete = (id: string) => {
+      setExamToDelete(id);
+      setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+      if (examToDelete) {
+          setExams(prev => prev.filter(e => e.id !== examToDelete));
+          setIsDeleteModalOpen(false);
+          setExamToDelete(null);
       }
   };
 
@@ -385,10 +410,20 @@ export const ExamManagement: React.FC = () => {
                             <Clock className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
                             {exam.duration_mins} mins
                         </span>
-                        <span className="flex items-center">
-                            <Calendar className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                            {new Date(exam.created_at).toLocaleDateString()}
-                        </span>
+                        
+                        {/* Scheduled Date Display */}
+                        {exam.scheduled_date ? (
+                            <span className="flex items-center text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded">
+                                <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                                {new Date(exam.scheduled_date).toLocaleDateString()} 
+                                {exam.scheduled_time && <span className="ml-1">at {exam.scheduled_time}</span>}
+                            </span>
+                        ) : (
+                            <span className="flex items-center text-slate-400 italic">
+                                <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                                Unscheduled
+                            </span>
+                        )}
                     </div>
                     </div>
                 </div>
@@ -420,7 +455,7 @@ export const ExamManagement: React.FC = () => {
                             <button onClick={() => handleEdit(exam)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">Edit Details</button>
                             <button onClick={() => navigate('/grading')} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">Grade Submissions</button>
                             <div className="h-px bg-slate-100"></div>
-                            <button onClick={() => handleDelete(exam.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">Delete</button>
+                            <button onClick={() => initiateDelete(exam.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -498,6 +533,31 @@ export const ExamManagement: React.FC = () => {
                                   <option value="Class 5B">Class 5B</option>
                                   <option value="Class 6A">Class 6A</option>
                               </select>
+                          </div>
+                      </div>
+
+                      {/* Scheduling Section */}
+                      <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                          <h4 className="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-3">Scheduling Details</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-indigo-600 mb-1.5">Date</label>
+                                  <input 
+                                      type="date"
+                                      value={formData.scheduled_date || ''}
+                                      onChange={e => setFormData({...formData, scheduled_date: e.target.value})}
+                                      className="w-full border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 text-sm"
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-indigo-600 mb-1.5">Start Time</label>
+                                  <input 
+                                      type="time"
+                                      value={formData.scheduled_time || ''}
+                                      onChange={e => setFormData({...formData, scheduled_time: e.target.value})}
+                                      className="w-full border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 text-sm"
+                                  />
+                              </div>
                           </div>
                       </div>
 
@@ -582,6 +642,35 @@ export const ExamManagement: React.FC = () => {
                               <Save className="w-4 h-4 mr-2" /> {editingId ? 'Save Changes' : 'Create Exam'}
                           </button>
                       </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center">
+                  <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-in zoom-in duration-300">
+                      <AlertTriangle className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Exam?</h3>
+                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+                      Are you sure you want to delete this exam? This action cannot be undone and will remove all associated questions and slots.
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                      <button 
+                        onClick={() => setIsDeleteModalOpen(false)}
+                        className="px-5 py-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold transition-colors"
+                      >
+                          Cancel
+                      </button>
+                      <button 
+                        onClick={confirmDelete}
+                        className="px-5 py-2.5 bg-red-600 text-white hover:bg-red-700 rounded-xl font-bold shadow-lg shadow-red-200 transition-all transform active:scale-95 flex items-center"
+                      >
+                          <Trash2 className="w-4 h-4 mr-2" /> Yes, Delete
+                      </button>
                   </div>
               </div>
           </div>

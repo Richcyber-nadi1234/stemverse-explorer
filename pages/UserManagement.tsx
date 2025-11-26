@@ -1,16 +1,18 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, UserRole, AuditLogEntry } from '../types';
-import { Search, Filter, Edit, Trash2, Shield, UserPlus, CheckCircle, AlertCircle, Mail, Save, X, Lock, CheckSquare, Square, Power, History, FileClock, XCircle, Eye } from 'lucide-react';
+import { Search, Filter, Edit, Trash2, Shield, UserPlus, CheckCircle, AlertCircle, Mail, Save, X, Lock, CheckSquare, Square, Power, History, FileClock, XCircle, Eye, FileText, Check, ThumbsDown, ThumbsUp, Clock, GraduationCap, School, User as UserIcon } from 'lucide-react';
 
 // Mock Data for Users
 const mockUsers: User[] = [
   { id: 'u1', first_name: 'Admin', last_name: 'User', email: 'admin@stemverse.com', roles: [UserRole.ADMIN], level: 10, coins: 0, xp: 0, active: true },
   { id: 'u2', first_name: 'Sarah', last_name: 'Mensah', email: 'sarah@school.edu', roles: [UserRole.STUDENT], level: 5, coins: 450, xp: 1200, active: true },
   { id: 'u3', first_name: 'Dr. K.', last_name: 'Osei', email: 'osei@school.edu', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: true },
-  { id: 'u4', first_name: 'John', last_name: 'Doe', email: 'john@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false },
+  { id: 'u4', first_name: 'John', last_name: 'Doe', email: 'john@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false, verificationDocuments: ['Tutor_Cert.pdf'], verificationStatus: 'pending' }, // Pending with doc
   { id: 'u5', first_name: 'Jane', last_name: 'Smith', email: 'jane@parent.com', roles: [UserRole.PARENT], level: 0, coins: 0, xp: 0, active: true },
   { id: 'u6', first_name: 'Kwame', last_name: 'Appiah', email: 'kwame.admin@school.edu', roles: [UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: true },
+  { id: 'u7', first_name: 'Future', last_name: 'Academy', email: 'admin@futureacademy.edu', roles: [UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: false, verificationDocuments: ['School_Reg_001.pdf'], verificationStatus: 'pending' }, // Pending School
+  { id: 'u8', first_name: 'Alice', last_name: 'Wonder', email: 'alice@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false, verificationStatus: 'unverified' }, // Pending Tutor NO DOC
 ];
 
 const mockAuditLogs: AuditLogEntry[] = [
@@ -33,6 +35,7 @@ export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('All');
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'pending'>('all');
   
   // Selection & Logs
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -47,6 +50,10 @@ export const UserManagement: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<Partial<User>>({});
+
+  // Review Modal State
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewUser, setReviewUser] = useState<User | null>(null);
   
   // Toast State
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -81,6 +88,16 @@ export const UserManagement: React.FC = () => {
     }
   };
 
+  const getRoleIcon = (role: UserRole) => {
+      switch(role) {
+          case UserRole.SCHOOL_ADMIN: return <School className="w-4 h-4" />;
+          case UserRole.STUDENT: return <GraduationCap className="w-4 h-4" />;
+          case UserRole.TEACHER: 
+          case UserRole.TUTOR: return <UserIcon className="w-4 h-4" />;
+          default: return <UserIcon className="w-4 h-4" />;
+      }
+  };
+
   // --- FILTERING ---
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -89,9 +106,16 @@ export const UserManagement: React.FC = () => {
         user.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRole = filterRole === 'All' || user.roles.includes(filterRole as UserRole);
-      return matchesSearch && matchesRole;
+      
+      let matchesTab = true;
+      if (activeTab === 'active') matchesTab = user.active === true;
+      if (activeTab === 'pending') matchesTab = user.active === false;
+
+      return matchesSearch && matchesRole && matchesTab;
     });
-  }, [users, searchQuery, filterRole]);
+  }, [users, searchQuery, filterRole, activeTab]);
+
+  const pendingCount = users.filter(u => !u.active).length;
 
   // --- SELECTION LOGIC ---
   const toggleSelection = (id: string) => {
@@ -140,6 +164,11 @@ export const UserManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleReview = (user: User) => {
+      setReviewUser(user);
+      setIsReviewModalOpen(true);
+  };
+
   const handleAdd = () => {
     setEditingUser(null);
     setFormData({
@@ -165,6 +194,25 @@ export const UserManagement: React.FC = () => {
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: newStatus } : u));
       logAction(newStatus ? 'Account Activated' : 'Account Deactivated', `${user.first_name} ${user.last_name}`);
       showNotification('success', `User ${newStatus ? 'activated' : 'deactivated'}.`);
+  };
+
+  const handleApproveUser = () => {
+      if (!reviewUser) return;
+      setUsers(prev => prev.map(u => u.id === reviewUser.id ? { ...u, active: true, verificationStatus: 'verified' } : u));
+      logAction('Application Approved', `${reviewUser.first_name} ${reviewUser.last_name}`);
+      showNotification('success', `${reviewUser.first_name} has been approved and activated.`);
+      setIsReviewModalOpen(false);
+      setReviewUser(null);
+  };
+
+  const handleRejectUser = () => {
+      if (!reviewUser) return;
+      if (!window.confirm("Are you sure you want to reject this application? The user will remain inactive.")) return;
+      setUsers(prev => prev.map(u => u.id === reviewUser.id ? { ...u, verificationStatus: 'rejected' } : u));
+      logAction('Application Rejected', `${reviewUser.first_name} ${reviewUser.last_name}`);
+      showNotification('success', `Application rejected.`);
+      setIsReviewModalOpen(false);
+      setReviewUser(null);
   };
 
   const handleViewLogs = (user: User) => {
@@ -253,7 +301,7 @@ export const UserManagement: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
-          <p className="text-slate-500">Manage accounts, roles, permissions, and audit logs.</p>
+          <p className="text-slate-500">Manage accounts, roles, permissions, and review applications.</p>
         </div>
         <button 
           onClick={handleAdd}
@@ -264,30 +312,58 @@ export const UserManagement: React.FC = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input 
-            type="text"
-            placeholder="Search users by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white transition-colors text-slate-900"
-          />
+      {/* Filters & Tabs */}
+      <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-center">
+        
+        {/* Tabs */}
+        <div className="flex p-1 bg-slate-100 rounded-lg mr-auto w-full sm:w-auto">
+            <button 
+                onClick={() => setActiveTab('all')}
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                All Users
+            </button>
+            <button 
+                onClick={() => setActiveTab('active')}
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'active' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                Active
+            </button>
+            <button 
+                onClick={() => setActiveTab('pending')}
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2 ${activeTab === 'pending' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+                Pending
+                {pendingCount > 0 && (
+                    <span className="bg-amber-500 text-white text-[10px] px-1.5 rounded-full">{pendingCount}</span>
+                )}
+            </button>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select 
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-          >
-            <option value="All">All Roles</option>
-            {Object.values(UserRole).map(role => (
-              <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}</option>
-            ))}
-          </select>
+
+        <div className="flex gap-3 w-full sm:w-auto px-2 pb-2 sm:pb-0 sm:px-0">
+            <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white transition-colors text-slate-900"
+            />
+            </div>
+            <div className="relative">
+                <select 
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value)}
+                    className="pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer appearance-none"
+                >
+                    <option value="All">All Roles</option>
+                    {Object.values(UserRole).map(role => (
+                    <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}</option>
+                    ))}
+                </select>
+                <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
         </div>
       </div>
 
@@ -317,7 +393,10 @@ export const UserManagement: React.FC = () => {
                     </button>
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">User Profile</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Roles</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Role & Type</th>
+                {activeTab === 'pending' && (
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Documents</th>
+                )}
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -325,7 +404,7 @@ export const UserManagement: React.FC = () => {
             <tbody className="bg-white divide-y divide-slate-200">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={activeTab === 'pending' ? 6 : 5} className="px-6 py-12 text-center text-slate-500">
                     No users found matching your search.
                   </td>
                 </tr>
@@ -350,50 +429,81 @@ export const UserManagement: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-2">
                         {user.roles.map(role => (
-                            <span key={role} className={`px-2.5 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wide rounded-full border ${getRoleColor(role)}`}>
+                            <span key={role} className={`px-2.5 py-1 inline-flex items-center text-[10px] font-bold uppercase tracking-wide rounded-full border ${getRoleColor(role)}`}>
+                                <span className="mr-1.5">{getRoleIcon(role)}</span>
                                 {role.replace('_', ' ')}
                             </span>
                         ))}
                     </div>
                   </td>
+                  
+                  {activeTab === 'pending' && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                          {(user.roles.includes(UserRole.TEACHER) || user.roles.includes(UserRole.TUTOR) || user.roles.includes(UserRole.SCHOOL_ADMIN)) ? (
+                              user.verificationDocuments && user.verificationDocuments.length > 0 ? (
+                                  <span className="flex items-center text-xs font-bold text-green-600">
+                                      <CheckCircle className="w-4 h-4 mr-1.5" /> Uploaded
+                                  </span>
+                              ) : (
+                                  <span className="flex items-center text-xs font-bold text-red-500">
+                                      <XCircle className="w-4 h-4 mr-1.5" /> Missing
+                                  </span>
+                              )
+                          ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                          )}
+                      </td>
+                  )}
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button 
-                        onClick={() => handleStatusToggle(user)}
+                        onClick={() => !user.active ? handleReview(user) : handleStatusToggle(user)}
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-bold rounded-full border flex items-center w-fit transition-all hover:scale-105 ${
                             user.active 
                             ? 'bg-green-50 text-green-700 border-green-200' 
-                            : 'bg-red-50 text-red-700 border-red-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
                         }`}
                     >
-                      {user.active ? <CheckCircle className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
-                      {user.active ? 'Active' : 'Inactive'}
+                      {user.active ? <CheckCircle className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
+                      {user.active ? 'Active' : 'Pending Verification'}
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => handleViewLogs(user)}
-                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
-                        title="View Audit Logs"
-                      >
-                        <History className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleEdit(user)}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
-                        title="Edit Role & Details"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(user)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete User"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="flex justify-end gap-2">
+                      {!user.active ? (
+                          <button 
+                            onClick={() => handleReview(user)}
+                            className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold shadow hover:bg-indigo-700 transition-colors flex items-center"
+                          >
+                              Review Application
+                          </button>
+                      ) : (
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={() => handleViewLogs(user)}
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                                title="View Audit Logs"
+                            >
+                                <History className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={() => handleEdit(user)}
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
+                                title="Edit Role & Details"
+                            >
+                                <Edit className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={() => handleDelete(user)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete User"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -450,6 +560,98 @@ export const UserManagement: React.FC = () => {
               </div>
           )}
       </div>
+
+      {/* APPROVAL / REVIEW MODAL */}
+      {isReviewModalOpen && reviewUser && (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+                  <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+                      <div className="flex items-center gap-3 mb-2">
+                          <Shield className="w-6 h-6" />
+                          <h3 className="text-xl font-bold">Review Application</h3>
+                      </div>
+                      <p className="text-indigo-100 text-sm">Verify applicant details before approving access.</p>
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                      <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xl shrink-0">
+                              {reviewUser.first_name[0]}
+                          </div>
+                          <div>
+                              <h4 className="text-lg font-bold text-slate-900">{reviewUser.first_name} {reviewUser.last_name}</h4>
+                              <p className="text-sm text-slate-500 mb-2">{reviewUser.email}</p>
+                              <div className="flex gap-2">
+                                  {reviewUser.roles.map(r => (
+                                      <span key={r} className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide border border-indigo-200">
+                                          {r.replace('_', ' ')}
+                                      </span>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+
+                      <div>
+                          <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Submitted Documents</h5>
+                          
+                          {reviewUser.verificationDocuments && reviewUser.verificationDocuments.length > 0 ? (
+                              <div className="space-y-2">
+                                  {reviewUser.verificationDocuments.map((doc, idx) => (
+                                      <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group">
+                                          <div className="flex items-center gap-3">
+                                              <div className="p-2 bg-red-50 text-red-600 rounded">
+                                                  <FileText className="w-5 h-5" />
+                                              </div>
+                                              <div>
+                                                  <p className="text-sm font-medium text-slate-900">{doc}</p>
+                                                  <p className="text-xs text-slate-400">Uploaded recently</p>
+                                              </div>
+                                          </div>
+                                          <button className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded group-hover:bg-indigo-100 transition-colors">
+                                              View
+                                          </button>
+                                      </div>
+                                  ))}
+                              </div>
+                          ) : (
+                              <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-sm flex items-center">
+                                  <AlertCircle className="w-4 h-4 mr-2" /> No documents uploaded.
+                              </div>
+                          )}
+                          
+                          {reviewUser.roles.includes(UserRole.SCHOOL_ADMIN) && (
+                              <div className="mt-3">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Registration Number</label>
+                                  <div className="p-2 bg-slate-50 border border-slate-200 rounded font-mono text-sm text-slate-700">
+                                      REG-PENDING-VERIFICATION
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+                      <button 
+                        onClick={handleRejectUser}
+                        className="flex-1 py-3 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                      >
+                          <ThumbsDown className="w-4 h-4" /> Reject
+                      </button>
+                      <button 
+                        onClick={handleApproveUser}
+                        disabled={!reviewUser.verificationDocuments?.length && !reviewUser.roles.includes(UserRole.STUDENT)}
+                        className="flex-1 py-3 bg-green-600 text-white hover:bg-green-700 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={(!reviewUser.verificationDocuments?.length && !reviewUser.roles.includes(UserRole.STUDENT)) ? "Cannot approve without documents" : "Approve User"}
+                      >
+                          <Check className="w-4 h-4" /> Approve Application
+                      </button>
+                  </div>
+                  <button onClick={() => setIsReviewModalOpen(false)} className="absolute top-4 right-4 text-white/70 hover:text-white">
+                      <X className="w-6 h-6" />
+                  </button>
+              </div>
+          </div>
+      )}
 
       {/* Edit/Add Modal */}
       {isModalOpen && (
