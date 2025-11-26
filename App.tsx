@@ -26,6 +26,7 @@ import { ProjectBoard } from './pages/ProjectBoard';
 import { StudentReport } from './pages/StudentReport';
 import { UserManagement } from './pages/UserManagement';
 import { ParentDashboard } from './pages/ParentDashboard';
+import { CalendarPage } from './pages/Calendar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole, User } from './types';
 import { StudentDashboard } from './pages/StudentDashboard';
@@ -148,6 +149,7 @@ export default function App() {
               <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/calendar" element={<CalendarPage />} />
 
             </Route>
           </Route>

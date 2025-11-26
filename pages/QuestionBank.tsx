@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Plus, Filter, Tag, Trash2, Edit, Save, X, CheckCircle2, AlertCircle, CheckSquare, Square, FileUp, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Question, QuestionType } from '../types';
 
-const mockQuestions: Question[] = [
+export const mockQuestions: Question[] = [
   {
     id: 'q1',
     text: 'What is the value of Pi to two decimal places?',

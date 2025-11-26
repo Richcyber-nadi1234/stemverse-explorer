@@ -1,7 +1,7 @@
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../App';
-import { Trophy, Zap, Star, Calendar, PlayCircle, Target, Award, Brain, BarChart2, Clock, CheckCircle, Medal, ArrowRight, Lock, Video, TrendingUp, BookOpen, Activity, ChevronRight, AlertCircle } from 'lucide-react';
+import { Trophy, Zap, Star, Calendar, PlayCircle, Target, Award, Brain, BarChart2, Clock, CheckCircle, Medal, ArrowRight, Lock, Video, TrendingUp, BookOpen, Activity, ChevronRight, X, Gift } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { RoadmapItem } from '../types';
@@ -108,9 +108,35 @@ const analyticsData = {
 };
 
 export const StudentDashboard: React.FC = () => {
-    const { user } = useContext(AuthContext);
+    const { user, updateUser } = useContext(AuthContext);
     const navigate = useNavigate();
     const [timeRange, setTimeRange] = useState<'week' | 'month' | 'term'>('week');
+    const [showDailyBonus, setShowDailyBonus] = useState(false);
+
+    // --- DAILY LOGIN BONUS LOGIC ---
+    useEffect(() => {
+        if (!user) return;
+
+        const today = new Date().toDateString();
+        const lastLogin = user.lastLoginDate ? new Date(user.lastLoginDate).toDateString() : null;
+
+        if (lastLogin !== today) {
+            // New day login
+            const newStreak = (lastLogin === new Date(Date.now() - 86400000).toDateString()) 
+                ? (user.streak || 0) + 1 
+                : 1; // Reset if missed a day, else increment
+
+            // Update User State with Bonus
+            updateUser({
+                lastLoginDate: new Date().toISOString(),
+                streak: newStreak,
+                coins: (user.coins || 0) + 50, // +50 Daily Coins
+                xp: (user.xp || 0) + 25
+            });
+
+            setShowDailyBonus(true);
+        }
+    }, [user?.id]); // Run only once per session/user load
 
     if (!user) return null;
 
@@ -123,7 +149,52 @@ export const StudentDashboard: React.FC = () => {
     const currentData = analyticsData[timeRange];
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-12 px-4 sm:px-6">
+        <div className="space-y-8 max-w-7xl mx-auto pb-12 px-4 sm:px-6 relative">
+            
+            {/* Daily Bonus Modal */}
+            {showDailyBonus && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center relative overflow-hidden border-4 border-indigo-100">
+                        <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-100 to-white -z-10"></div>
+                        <button 
+                            onClick={() => setShowDailyBonus(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                        
+                        <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-bounce">
+                            <Gift className="w-12 h-12 text-yellow-600" />
+                        </div>
+                        
+                        <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Daily Login Bonus!</h2>
+                        <p className="text-slate-500 mb-6">You're on a roll! Keep coming back to learn.</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                                <p className="text-indigo-600 font-bold text-xs uppercase">Coins</p>
+                                <p className="text-xl font-extrabold text-indigo-900 flex items-center justify-center">
+                                    +50 <Star className="w-4 h-4 ml-1 fill-indigo-900" />
+                                </p>
+                            </div>
+                            <div className="bg-green-50 p-3 rounded-xl border border-green-100">
+                                <p className="text-green-600 font-bold text-xs uppercase">Streak</p>
+                                <p className="text-xl font-extrabold text-green-900 flex items-center justify-center">
+                                    {user.streak} <Zap className="w-4 h-4 ml-1 fill-green-900" />
+                                </p>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => setShowDailyBonus(false)}
+                            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-transform active:scale-95"
+                        >
+                            Awesome!
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Gamification Header */}
             <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 rounded-3xl p-6 md:p-10 text-white shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
@@ -162,7 +233,7 @@ export const StudentDashboard: React.FC = () => {
                                     {user.streak || 0} Day Streak
                                 </div>
                                 <span className="opacity-70 hidden sm:inline">•</span>
-                                <span className="font-medium">{xpToNextLevel - currentXP} XP to Level {currentLevel + 1}</span>
+                                <span className="font-medium">{Math.max(0, xpToNextLevel - currentXP)} XP to Level {currentLevel + 1}</span>
                             </div>
 
                             {/* Stat Pills */}

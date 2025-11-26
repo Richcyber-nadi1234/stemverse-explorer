@@ -1,7 +1,10 @@
 
-import React, { useState } from 'react';
-import { Search, Star, ShoppingCart, Filter, User, BookOpen, Video, Check, Plus, DollarSign, Package, ArrowLeft, Wallet, Tag, X } from 'lucide-react';
+import React, { useState, useContext } from 'react';
+import { Search, Star, ShoppingCart, Filter, User, BookOpen, Video, Check, Plus, DollarSign, Package, ArrowLeft, Wallet, Tag, X, TrendingUp, Eye, ShoppingBag, FileText, Calendar, Trash2, Edit, Download, ExternalLink } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import { MarketplaceItem } from '../types';
+import { AuthContext } from '../App';
+import { useNavigate } from 'react-router-dom';
 
 const initialItems: MarketplaceItem[] = [
   {
@@ -12,7 +15,8 @@ const initialItems: MarketplaceItem[] = [
     rating: 4.8,
     reviews: 24,
     thumbnail: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&q=80&w=400',
-    type: 'worksheet'
+    type: 'worksheet',
+    description: 'Comprehensive practice problems for quadratic equations, polynomials, and functions. Includes answer key and step-by-step solutions.'
   },
   {
     id: 'm2',
@@ -22,7 +26,8 @@ const initialItems: MarketplaceItem[] = [
     rating: 5.0,
     reviews: 12,
     thumbnail: 'https://images.unsplash.com/photo-1587620962725-abab7fe55159?auto=format&fit=crop&q=80&w=400',
-    type: 'tutor_session'
+    type: 'tutor_session',
+    description: 'Personalized coding session to help you debug your project or learn new concepts. Beginner to Intermediate friendly.'
   },
   {
     id: 'm3',
@@ -32,7 +37,8 @@ const initialItems: MarketplaceItem[] = [
     rating: 4.5,
     reviews: 8,
     thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=400',
-    type: 'course'
+    type: 'course',
+    description: 'Interactive 3D assets of all planets in our solar system. Perfect for science projects or VR experiments.'
   },
   {
     id: 'm4',
@@ -42,24 +48,42 @@ const initialItems: MarketplaceItem[] = [
     rating: 4.2,
     reviews: 150,
     thumbnail: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&q=80&w=400',
-    type: 'worksheet'
+    type: 'worksheet',
+    description: 'Quick reference guide for all major physics formulas including kinematics, forces, and energy. PDF format.'
   }
 ];
 
+// Mock Analytics Data
+const analyticsData = {
+    views: [
+        { name: 'Mon', value: 45 }, { name: 'Tue', value: 60 }, { name: 'Wed', value: 35 },
+        { name: 'Thu', value: 80 }, { name: 'Fri', value: 100 }, { name: 'Sat', value: 120 }, { name: 'Sun', value: 90 }
+    ],
+    sales: [
+        { name: 'Week 1', value: 300 }, { name: 'Week 2', value: 450 }, { name: 'Week 3', value: 200 }, { name: 'Week 4', value: 600 }
+    ]
+};
+
 export const Marketplace: React.FC = () => {
+  const { user, updateUser } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [view, setView] = useState<'browse' | 'purchases' | 'creator'>('browse');
-  const [balance, setBalance] = useState(450);
+  
   const [items, setItems] = useState<MarketplaceItem[]>(initialItems);
   const [purchasedItems, setPurchasedItems] = useState<MarketplaceItem[]>([]);
   const [myListings, setMyListings] = useState<MarketplaceItem[]>([]);
   
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'tutor_session' | 'content'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'course' | 'worksheet' | 'tutor_session'>('all');
 
-  // Creator Form State
+  // UI State
+  const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
+  const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [newListing, setNewListing] = useState<Partial<MarketplaceItem>>({ type: 'worksheet' });
+
+  const currentBalance = user?.coins || 0;
 
   // --- Actions ---
 
@@ -68,44 +92,79 @@ export const Marketplace: React.FC = () => {
         alert('You already own this item!');
         return;
     }
-    if (balance >= item.price) {
+    
+    if (currentBalance >= item.price) {
       if (window.confirm(`Purchase "${item.title}" for 🪙${item.price}?`)) {
-        setBalance(prev => prev - item.price);
+        updateUser({ coins: currentBalance - item.price });
         setPurchasedItems(prev => [item, ...prev]);
-        alert('Purchase successful! Content is now in your library.');
+        setSelectedItem(null); // Close modal if open
+        alert('Purchase successful! Added to My Purchases.');
       }
     } else {
-      alert('Insufficient funds!');
+      alert(`Insufficient funds! You need 🪙${item.price - currentBalance} more coins.`);
     }
   };
 
-  const handleCreateListing = () => {
+  const handleAccessItem = (item: MarketplaceItem) => {
+      if (item.type === 'course') {
+          navigate('/lms'); // In a real app, navigate to specific course ID
+      } else if (item.type === 'worksheet') {
+          alert(`Downloading ${item.title}.pdf...`);
+      } else if (item.type === 'tutor_session') {
+          alert(`Opening scheduler for ${item.title}...`);
+      }
+  };
+
+  // --- Creator Actions ---
+
+  const openCreateModal = () => {
+      setEditingListingId(null);
+      setNewListing({ type: 'worksheet', title: '', price: 0, description: '' });
+      setIsListingModalOpen(true);
+  };
+
+  const openEditModal = (item: MarketplaceItem) => {
+      setEditingListingId(item.id);
+      setNewListing({ ...item });
+      setIsListingModalOpen(true);
+  };
+
+  const handleSaveListing = () => {
       if (!newListing.title || !newListing.price) return;
       
-      const newItem: MarketplaceItem = {
-          id: `own_${Date.now()}`,
+      const listingData: MarketplaceItem = {
+          id: editingListingId || `own_${Date.now()}`,
           title: newListing.title,
           price: Number(newListing.price),
           type: newListing.type as any,
-          creator_name: 'You',
-          rating: 0,
-          reviews: 0,
-          thumbnail: 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&q=80&w=400' // Default placeholder
+          description: newListing.description || '',
+          creator_name: user?.first_name || 'You',
+          rating: editingListingId ? (newListing.rating || 0) : 0,
+          reviews: editingListingId ? (newListing.reviews || 0) : 0,
+          thumbnail: newListing.thumbnail || 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&q=80&w=400'
       };
 
-      setMyListings(prev => [newItem, ...prev]);
-      setItems(prev => [newItem, ...prev]); // Add to public market too for demo
+      if (editingListingId) {
+          setMyListings(prev => prev.map(item => item.id === editingListingId ? listingData : item));
+          setItems(prev => prev.map(item => item.id === editingListingId ? listingData : item));
+      } else {
+          setMyListings(prev => [listingData, ...prev]);
+          setItems(prev => [listingData, ...prev]);
+      }
+      
       setIsListingModalOpen(false);
-      setNewListing({ type: 'worksheet', title: '', price: 0 });
+  };
+
+  const handleDeleteListing = (id: string) => {
+      if (window.confirm('Are you sure you want to remove this listing?')) {
+          setMyListings(prev => prev.filter(item => item.id !== id));
+          setItems(prev => prev.filter(item => item.id !== id));
+      }
   };
 
   const filteredItems = items.filter(item => {
       const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.creator_name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesFilter = filterType === 'all' 
-        ? true 
-        : filterType === 'tutor_session' 
-            ? item.type === 'tutor_session' 
-            : item.type !== 'tutor_session'; // 'content' covers courses/worksheets
+      const matchesFilter = filterType === 'all' || item.type === filterType;
       return matchesSearch && matchesFilter;
   });
 
@@ -146,7 +205,7 @@ export const Marketplace: React.FC = () => {
                   <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/20 min-w-[160px]">
                       <p className="text-xs uppercase tracking-wider font-bold text-indigo-200 mb-1">Your Balance</p>
                       <p className="text-3xl font-bold flex items-center gap-2">
-                          <span className="text-yellow-400 text-2xl">🪙</span> {balance}
+                          <span className="text-yellow-400 text-2xl">🪙</span> {currentBalance}
                       </p>
                   </div>
                   
@@ -192,32 +251,23 @@ export const Marketplace: React.FC = () => {
                     type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search for tutors, worksheets, or courses..." 
+                    placeholder="Search..." 
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50 focus:bg-white transition-colors"
                     />
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
+                <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
                     <div className="flex items-center px-3 text-slate-400 border-r border-slate-200 mr-2">
                         <Filter className="w-4 h-4" />
                     </div>
-                    <button 
-                        onClick={() => setFilterType('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${filterType === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
-                    >
-                        All
-                    </button>
-                    <button 
-                        onClick={() => setFilterType('tutor_session')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${filterType === 'tutor_session' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
-                    >
-                        Tutoring
-                    </button>
-                    <button 
-                        onClick={() => setFilterType('content')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${filterType === 'content' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
-                    >
-                        Resources
-                    </button>
+                    {['all', 'course', 'worksheet', 'tutor_session'].map(type => (
+                        <button 
+                            key={type}
+                            onClick={() => setFilterType(type as any)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap capitalize ${filterType === type ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                        >
+                            {type.replace('_', ' ')}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -229,12 +279,16 @@ export const Marketplace: React.FC = () => {
                         <p>No items found matching your search.</p>
                     </div>
                 ) : filteredItems.map(item => (
-                    <div key={item.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-all group flex flex-col h-full">
+                    <div 
+                        key={item.id} 
+                        onClick={() => setSelectedItem(item)}
+                        className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md hover:border-indigo-200 transition-all group flex flex-col h-full cursor-pointer"
+                    >
                         <div className="relative h-48 overflow-hidden bg-slate-100">
                             <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                             <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 flex items-center gap-1.5 shadow-sm">
                                 {item.type === 'tutor_session' && <Video className="w-3 h-3 text-indigo-600" />}
-                                {item.type === 'worksheet' && <BookOpen className="w-3 h-3 text-emerald-600" />}
+                                {item.type === 'worksheet' && <FileText className="w-3 h-3 text-emerald-600" />}
                                 {item.type === 'course' && <BookOpen className="w-3 h-3 text-blue-600" />}
                                 <span className="capitalize">{item.type.replace('_', ' ')}</span>
                             </div>
@@ -257,12 +311,12 @@ export const Marketplace: React.FC = () => {
                                     🪙 {item.price}
                                 </div>
                                 {purchasedItems.find(i => i.id === item.id) ? (
-                                    <button disabled className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center">
+                                    <span className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center">
                                         <Check className="w-3 h-3 mr-1" /> Owned
-                                    </button>
+                                    </span>
                                 ) : (
                                     <button 
-                                        onClick={() => handleBuy(item)}
+                                        onClick={(e) => { e.stopPropagation(); handleBuy(item); }}
                                         className="bg-slate-900 hover:bg-slate-800 text-white p-2.5 rounded-xl transition-colors shadow-lg shadow-slate-200 active:scale-95"
                                     >
                                         <ShoppingCart className="w-4 h-4" />
@@ -296,15 +350,19 @@ export const Marketplace: React.FC = () => {
               ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {purchasedItems.map(item => (
-                          <div key={item.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex gap-4 items-center">
+                          <div key={item.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex gap-4 items-center hover:shadow-md transition-all">
                               <div className="w-20 h-20 bg-slate-100 rounded-xl overflow-hidden shrink-0">
                                   <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
                               </div>
                               <div className="flex-1 min-w-0">
                                   <h4 className="font-bold text-slate-900 truncate">{item.title}</h4>
-                                  <p className="text-xs text-slate-500 mb-2 capitalize">{item.type.replace('_', ' ')}</p>
-                                  <button className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors w-fit">
-                                      Download / Access
+                                  <p className="text-xs text-slate-500 mb-3 capitalize">{item.type.replace('_', ' ')}</p>
+                                  <button 
+                                    onClick={() => handleAccessItem(item)}
+                                    className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1.5 w-fit"
+                                  >
+                                      {item.type === 'course' ? <BookOpen className="w-3 h-3" /> : item.type === 'tutor_session' ? <Calendar className="w-3 h-3" /> : <Download className="w-3 h-3" />}
+                                      {item.type === 'course' ? 'Go to Course' : item.type === 'tutor_session' ? 'Schedule' : 'Download'}
                                   </button>
                               </div>
                           </div>
@@ -334,12 +392,45 @@ export const Marketplace: React.FC = () => {
                       </div>
                       <p className="text-3xl font-bold text-slate-900">{myListings.length}</p>
                   </div>
-                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors group" onClick={() => setIsListingModalOpen(true)}>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors group" onClick={openCreateModal}>
                       <div className="h-full flex flex-col items-center justify-center text-center space-y-2">
                           <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                               <Plus className="w-6 h-6" />
                           </div>
                           <span className="font-bold text-indigo-900">Create New Listing</span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Analytics Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                      <h3 className="font-bold text-slate-900 mb-6 flex items-center"><Eye className="w-4 h-4 mr-2 text-indigo-600" /> Listing Views (Last 7 Days)</h3>
+                      <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={analyticsData.views}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                  <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1' }} />
+                              </LineChart>
+                          </ResponsiveContainer>
+                      </div>
+                  </div>
+                  
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                      <h3 className="font-bold text-slate-900 mb-6 flex items-center"><TrendingUp className="w-4 h-4 mr-2 text-green-600" /> Sales Volume (Weekly)</h3>
+                      <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={analyticsData.sales}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                  <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
+                              </BarChart>
+                          </ResponsiveContainer>
                       </div>
                   </div>
               </div>
@@ -354,7 +445,7 @@ export const Marketplace: React.FC = () => {
                       <div className="p-12 text-center text-slate-400">
                           <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
                           <p>You haven't created any listings yet.</p>
-                          <button onClick={() => setIsListingModalOpen(true)} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Create your first item</button>
+                          <button onClick={openCreateModal} className="text-indigo-600 font-bold text-sm mt-2 hover:underline">Create your first item</button>
                       </div>
                   ) : (
                       <table className="min-w-full text-left text-sm">
@@ -363,7 +454,7 @@ export const Marketplace: React.FC = () => {
                                   <th className="px-6 py-3 font-medium">Item</th>
                                   <th className="px-6 py-3 font-medium">Type</th>
                                   <th className="px-6 py-3 font-medium">Price</th>
-                                  <th className="px-6 py-3 font-medium">Sales</th>
+                                  <th className="px-6 py-3 font-medium">Reviews</th>
                                   <th className="px-6 py-3 font-medium text-right">Actions</th>
                               </tr>
                           </thead>
@@ -373,9 +464,14 @@ export const Marketplace: React.FC = () => {
                                       <td className="px-6 py-4 font-medium text-slate-900">{item.title}</td>
                                       <td className="px-6 py-4 capitalize">{item.type.replace('_', ' ')}</td>
                                       <td className="px-6 py-4">🪙 {item.price}</td>
-                                      <td className="px-6 py-4 text-slate-500">0</td>
-                                      <td className="px-6 py-4 text-right">
-                                          <button className="text-slate-400 hover:text-indigo-600 font-medium">Edit</button>
+                                      <td className="px-6 py-4 text-slate-500">{item.reviews || 0}</td>
+                                      <td className="px-6 py-4 text-right flex justify-end gap-2">
+                                          <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                              <Edit className="w-4 h-4" />
+                                          </button>
+                                          <button onClick={() => handleDeleteListing(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                              <Trash2 className="w-4 h-4" />
+                                          </button>
                                       </td>
                                   </tr>
                               ))}
@@ -386,15 +482,75 @@ export const Marketplace: React.FC = () => {
           </div>
       )}
 
-      {/* --- CREATE LISTING MODAL --- */}
+      {/* --- ITEM DETAIL MODAL --- */}
+      {selectedItem && (
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+                  <div className="w-full md:w-2/5 bg-slate-100 relative min-h-[200px]">
+                      <img src={selectedItem.thumbnail} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-xs font-bold text-slate-800 shadow-sm capitalize">
+                          {selectedItem.type.replace('_', ' ')}
+                      </div>
+                  </div>
+                  <div className="flex-1 p-6 flex flex-col overflow-y-auto">
+                      <div className="flex justify-between items-start mb-4">
+                          <div>
+                              <h2 className="text-xl font-bold text-slate-900 mb-1">{selectedItem.title}</h2>
+                              <div className="flex items-center text-sm text-slate-500">
+                                  <User className="w-3 h-3 mr-1" /> {selectedItem.creator_name}
+                              </div>
+                          </div>
+                          <button onClick={() => setSelectedItem(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100">
+                              <X className="w-5 h-5" />
+                          </button>
+                      </div>
+
+                      <div className="flex items-center gap-4 mb-6 text-sm">
+                          <div className="flex items-center bg-amber-50 border border-amber-100 px-2 py-1 rounded-lg text-amber-700 font-bold">
+                              <Star className="w-3.5 h-3.5 mr-1 fill-amber-500" /> {selectedItem.rating}
+                          </div>
+                          <div className="text-slate-500">
+                              {selectedItem.reviews} Reviews
+                          </div>
+                      </div>
+
+                      <div className="prose prose-sm text-slate-600 mb-6">
+                          <p>{selectedItem.description || "No description available."}</p>
+                      </div>
+
+                      <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                          <div>
+                              <p className="text-xs text-slate-500 uppercase font-bold">Price</p>
+                              <p className="text-2xl font-bold text-indigo-600">🪙 {selectedItem.price}</p>
+                          </div>
+                          {purchasedItems.find(i => i.id === selectedItem.id) ? (
+                              <button disabled className="flex-1 py-3 bg-green-100 text-green-700 rounded-xl font-bold flex items-center justify-center">
+                                  <Check className="w-5 h-5 mr-2" /> Owned
+                              </button>
+                          ) : (
+                              <button 
+                                onClick={() => handleBuy(selectedItem)}
+                                className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
+                              >
+                                  Buy Now
+                              </button>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- CREATE/EDIT LISTING MODAL --- */}
       {isListingModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
                   <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                      <h3 className="font-bold text-slate-900">Create New Listing</h3>
+                      <h3 className="font-bold text-slate-900">{editingListingId ? 'Edit Listing' : 'Create New Listing'}</h3>
                       <button onClick={() => setIsListingModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
                   </div>
-                  <div className="p-6 space-y-4">
+                  
+                  <div className="p-6 space-y-4 overflow-y-auto">
                       <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Title</label>
                           <input 
@@ -429,11 +585,26 @@ export const Marketplace: React.FC = () => {
                               />
                           </div>
                       </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
+                          <textarea 
+                            rows={4}
+                            value={newListing.description || ''}
+                            onChange={e => setNewListing({...newListing, description: e.target.value})}
+                            className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Describe what the student will learn..."
+                          />
+                      </div>
+                  </div>
+
+                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                      <button onClick={() => setIsListingModalOpen(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-white rounded-lg transition-colors">Cancel</button>
                       <button 
-                        onClick={handleCreateListing}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors mt-2"
+                        onClick={handleSaveListing}
+                        disabled={!newListing.title || !newListing.price}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
                       >
-                          Publish Listing
+                          {editingListingId ? 'Save Changes' : 'Publish Listing'}
                       </button>
                   </div>
               </div>
@@ -443,8 +614,3 @@ export const Marketplace: React.FC = () => {
     </div>
   );
 };
-
-// Missing icon import shim if needed
-const ShoppingBag = ({className}: {className?: string}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-);

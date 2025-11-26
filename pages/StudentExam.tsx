@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Timer, ChevronRight, ChevronLeft, Flag, CheckCircle, AlertTriangle, Bot, List, LayoutGrid, X } from 'lucide-react';
+import { Timer, ChevronRight, ChevronLeft, Flag, CheckCircle, AlertTriangle, Bot, List, LayoutGrid, X, Star, Trophy, Zap } from 'lucide-react';
 import { Question } from '../types';
+import { AuthContext } from '../App';
 
 const mockQuestions: Question[] = [
   { id: 'q1', text: 'What is the value of Pi?', type: 'MCQ', options: ['3.12', '3.14', '3.16'], marks: 2, difficulty: 'Easy', subject: 'Math', tags: [], grade_level: 5 },
@@ -12,11 +14,18 @@ const mockQuestions: Question[] = [
 export const StudentExam: React.FC = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const { user, updateUser } = useContext(AuthContext);
+  
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState(3600); // 1 hour
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGridOpen, setIsGridOpen] = useState(false);
+  
+  // Result state for display
+  const [earnedCoins, setEarnedCoins] = useState(0);
+  const [earnedXP, setEarnedXP] = useState(0);
+  const [examScore, setExamScore] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -37,12 +46,30 @@ export const StudentExam: React.FC = () => {
   };
 
   const handleSubmit = () => {
+    // Mock Scoring Logic
+    // In a real app, this would be server-side or checked against correct answers
+    // Here we simulate a score between 60% and 100%
+    const mockScore = Math.floor(Math.random() * 41) + 60; 
+    setExamScore(mockScore);
+
+    // Calculate Rewards
+    const baseCoins = 50;
+    const highScoreBonus = mockScore >= 80 ? 50 : 0;
+    const perfectBonus = mockScore === 100 ? 50 : 0;
+    
+    const totalCoins = baseCoins + highScoreBonus + perfectBonus;
+    const totalXP = 200 + (mockScore > 80 ? 100 : 0);
+
+    setEarnedCoins(totalCoins);
+    setEarnedXP(totalXP);
+
+    if (user) {
+        updateUser({
+            coins: (user.coins || 0) + totalCoins,
+            xp: (user.xp || 0) + totalXP
+        });
+    }
     setIsSubmitted(true);
-    // Mock API call
-    setTimeout(() => {
-      alert('Exam Submitted Successfully!');
-      navigate('/student-dashboard');
-    }, 2000);
   };
 
   const handleGetHint = () => {
@@ -59,11 +86,42 @@ export const StudentExam: React.FC = () => {
 
   if (isSubmitted) {
     return (
-      <div className="flex items-center justify-center h-[80vh]">
-        <div className="text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold">Submission Received</h2>
-          <p className="text-slate-500">Redirecting you to dashboard...</p>
+      <div className="flex items-center justify-center min-h-[80vh] animate-in fade-in duration-500 p-4">
+        <div className="text-center p-8 md:p-12 bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+          
+          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+             <Trophy className="w-12 h-12 text-green-600" />
+          </div>
+          
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">Exam Submitted!</h2>
+          <div className="mb-8">
+              <span className="text-4xl font-extrabold text-indigo-600">{examScore}%</span>
+              <p className="text-slate-500 text-sm">Score</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 transform transition-all hover:scale-105">
+                  <p className="text-yellow-700 font-bold text-xs uppercase mb-1">Coins Earned</p>
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold text-slate-900">
+                      <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" /> +{earnedCoins}
+                  </div>
+                  {earnedCoins > 50 && <p className="text-[10px] text-yellow-600 font-bold mt-1">High Score Bonus!</p>}
+              </div>
+              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 transform transition-all hover:scale-105">
+                  <p className="text-indigo-700 font-bold text-xs uppercase mb-1">XP Gained</p>
+                  <div className="flex items-center justify-center gap-2 text-xl font-bold text-slate-900">
+                      <Zap className="w-5 h-5 text-indigo-500 fill-indigo-500" /> +{earnedXP}
+                  </div>
+              </div>
+          </div>
+
+          <button 
+            onClick={() => navigate('/student-dashboard')} 
+            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-lg"
+          >
+              Return to Dashboard
+          </button>
         </div>
       </div>
     );

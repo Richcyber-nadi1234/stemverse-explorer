@@ -10,7 +10,7 @@ interface ExtendedExam extends Exam {
     scheduled_time?: string;
 }
 
-const mockExams: ExtendedExam[] = [
+export const mockExams: ExtendedExam[] = [
   {
     id: '1',
     title: 'Mathematics Mid-Term',

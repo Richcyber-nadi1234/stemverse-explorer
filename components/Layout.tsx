@@ -21,7 +21,8 @@ import {
   Library,
   Home,
   GraduationCap,
-  Baby
+  Baby,
+  Calendar
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { Logo } from './Logo';
@@ -42,6 +43,7 @@ export const Layout: React.FC = () => {
     { name: 'Learning Hub', href: '/lms', icon: BookOpen },
     { name: 'Live Classes', href: '/live', icon: Video },
     { name: 'Assignments', href: '/exams', icon: CheckSquare }, 
+    { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Marketplace', href: '/marketplace', icon: ShoppingCart },
   ];
 
@@ -50,6 +52,7 @@ export const Layout: React.FC = () => {
     { name: 'Instructor Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'My Courses', href: '/instructor/courses', icon: Library },
     { name: 'Project Board', href: '/instructor/projects', icon: Briefcase },
+    { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Course Studio', href: '/studio', icon: PenTool },
     { name: 'Grading', href: '/grading', icon: CheckSquare },
     { name: 'Question Bank', href: '/questions', icon: FileQuestion },
@@ -62,6 +65,7 @@ export const Layout: React.FC = () => {
   const adminNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'School Management', href: '/sms', icon: School },
+    { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Reports & Exports', href: '/reports', icon: FileSpreadsheet },
     { name: 'Users & Roles', href: '/admin/users', icon: UserCheck }, 
   ];
@@ -69,6 +73,7 @@ export const Layout: React.FC = () => {
   // Parent Navigation
   const parentNavigation = [
     { name: 'Parent Dashboard', href: '/parent-dashboard', icon: Baby },
+    { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Marketplace', href: '/marketplace', icon: ShoppingCart },
   ];
 

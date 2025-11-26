@@ -1,18 +1,18 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, UserRole, AuditLogEntry } from '../types';
-import { Search, Filter, Edit, Trash2, Shield, UserPlus, CheckCircle, AlertCircle, Mail, Save, X, Lock, CheckSquare, Square, Power, History, FileClock, XCircle, Eye, FileText, Check, ThumbsDown, ThumbsUp, Clock, GraduationCap, School, User as UserIcon } from 'lucide-react';
+import { Search, Filter, Edit, Trash2, Shield, UserPlus, CheckCircle, AlertCircle, Mail, Save, X, Lock, CheckSquare, Square, Power, History, FileClock, XCircle, Eye, FileText, Check, ThumbsDown, ThumbsUp, Clock, GraduationCap, School, User as UserIcon, Key } from 'lucide-react';
 
 // Mock Data for Users
 const mockUsers: User[] = [
-  { id: 'u1', first_name: 'Admin', last_name: 'User', email: 'admin@stemverse.com', roles: [UserRole.ADMIN], level: 10, coins: 0, xp: 0, active: true },
-  { id: 'u2', first_name: 'Sarah', last_name: 'Mensah', email: 'sarah@school.edu', roles: [UserRole.STUDENT], level: 5, coins: 450, xp: 1200, active: true },
-  { id: 'u3', first_name: 'Dr. K.', last_name: 'Osei', email: 'osei@school.edu', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: true },
-  { id: 'u4', first_name: 'John', last_name: 'Doe', email: 'john@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false, verificationDocuments: ['Tutor_Cert.pdf'], verificationStatus: 'pending' }, // Pending with doc
-  { id: 'u5', first_name: 'Jane', last_name: 'Smith', email: 'jane@parent.com', roles: [UserRole.PARENT], level: 0, coins: 0, xp: 0, active: true },
-  { id: 'u6', first_name: 'Kwame', last_name: 'Appiah', email: 'kwame.admin@school.edu', roles: [UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: true },
-  { id: 'u7', first_name: 'Future', last_name: 'Academy', email: 'admin@futureacademy.edu', roles: [UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: false, verificationDocuments: ['School_Reg_001.pdf'], verificationStatus: 'pending' }, // Pending School
-  { id: 'u8', first_name: 'Alice', last_name: 'Wonder', email: 'alice@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false, verificationStatus: 'unverified' }, // Pending Tutor NO DOC
+  { id: 'u1', first_name: 'Admin', last_name: 'User', email: 'admin@stemverse.com', roles: [UserRole.ADMIN], level: 10, coins: 0, xp: 0, active: true, verificationStatus: 'verified', customPermissions: [] },
+  { id: 'u2', first_name: 'Sarah', last_name: 'Mensah', email: 'sarah@school.edu', roles: [UserRole.STUDENT], level: 5, coins: 450, xp: 1200, active: true, verificationStatus: 'unverified', customPermissions: [] },
+  { id: 'u3', first_name: 'Dr. K.', last_name: 'Osei', email: 'osei@school.edu', roles: [UserRole.TEACHER, UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: true, verificationStatus: 'verified', customPermissions: [] },
+  { id: 'u4', first_name: 'John', last_name: 'Doe', email: 'john@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false, verificationDocuments: ['Tutor_Cert.pdf'], verificationStatus: 'pending', customPermissions: [] }, // Pending with doc
+  { id: 'u5', first_name: 'Jane', last_name: 'Smith', email: 'jane@parent.com', roles: [UserRole.PARENT], level: 0, coins: 0, xp: 0, active: true, verificationStatus: 'verified', customPermissions: [] },
+  { id: 'u6', first_name: 'Kwame', last_name: 'Appiah', email: 'kwame.admin@school.edu', roles: [UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: true, verificationStatus: 'verified', customPermissions: [] },
+  { id: 'u7', first_name: 'Future', last_name: 'Academy', email: 'admin@futureacademy.edu', roles: [UserRole.SCHOOL_ADMIN], level: 0, coins: 0, xp: 0, active: false, verificationDocuments: ['School_Reg_001.pdf'], verificationStatus: 'pending', customPermissions: [] }, // Pending School
+  { id: 'u8', first_name: 'Alice', last_name: 'Wonder', email: 'alice@tutor.com', roles: [UserRole.TUTOR], level: 0, coins: 0, xp: 0, active: false, verificationStatus: 'unverified', customPermissions: [] }, // Pending Tutor NO DOC
 ];
 
 const mockAuditLogs: AuditLogEntry[] = [
@@ -29,6 +29,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   [UserRole.TUTOR]: ['Create Content', 'Host Live Sessions', 'View Earnings'],
   [UserRole.STUDENT]: ['Access Courses', 'Take Exams', 'View Progress', 'Participate in Live Classes'],
   [UserRole.PARENT]: ['View Child Progress', 'View Attendance', 'Make Payments']
+};
+
+const PERMISSION_CATEGORIES = {
+    'Administrative': ['Full System Access', 'Manage Users', 'Configure Settings', 'View All Data', 'Manage School Profile'],
+    'Academic': ['Manage Classes', 'Manage Timetables', 'Create Courses', 'Create Content', 'Manage Assignments'],
+    'Grading & Reports': ['Grade Exams', 'View Student Data', 'View School Reports', 'View Child Progress'],
+    'Interaction': ['Host Live Sessions', 'Participate in Live Classes', 'Access Courses', 'Take Exams'],
+    'Finance': ['Make Payments', 'View Earnings']
 };
 
 export const UserManagement: React.FC = () => {
@@ -98,6 +106,33 @@ export const UserManagement: React.FC = () => {
       }
   };
 
+  const getVerificationBadge = (user: User) => {
+    const status = user.verificationStatus || 'unverified';
+    const styles: Record<string, string> = {
+        verified: 'bg-teal-50 text-teal-700 border-teal-200',
+        pending: 'bg-amber-50 text-amber-700 border-amber-200',
+        rejected: 'bg-red-50 text-red-700 border-red-200',
+        unverified: 'bg-slate-100 text-slate-500 border-slate-200'
+    };
+    
+    const icons: Record<string, React.ReactNode> = {
+        verified: <Shield className="w-3 h-3 mr-1" />,
+        pending: <Clock className="w-3 h-3 mr-1" />,
+        rejected: <XCircle className="w-3 h-3 mr-1" />,
+        unverified: <AlertCircle className="w-3 h-3 mr-1" />
+    };
+
+    return (
+        <span className={`px-2.5 py-0.5 inline-flex items-center rounded-full text-xs font-bold border capitalize ${styles[status]}`}>
+            {icons[status]} {status}
+        </span>
+    );
+  };
+
+  const isPermissionInherited = (perm: string, currentRoles: UserRole[]) => {
+    return currentRoles.some(role => ROLE_PERMISSIONS[role]?.includes(perm));
+  };
+
   // --- FILTERING ---
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -160,7 +195,7 @@ export const UserManagement: React.FC = () => {
   // --- INDIVIDUAL CRUD ---
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    setFormData({ ...user });
+    setFormData({ ...user, customPermissions: user.customPermissions || [] });
     setIsModalOpen(true);
   };
 
@@ -176,7 +211,8 @@ export const UserManagement: React.FC = () => {
       last_name: '',
       email: '',
       roles: [UserRole.STUDENT],
-      active: true
+      active: true,
+      customPermissions: []
     });
     setIsModalOpen(true);
   };
@@ -248,8 +284,8 @@ export const UserManagement: React.FC = () => {
       const removedRoles = oldRoles.filter(r => !newRoles.includes(r)).map(r => r.replace('_', ' '));
       
       let changeDetails = '';
-      if (addedRoles.length) changeDetails += `Added: ${addedRoles.join(', ')}. `;
-      if (removedRoles.length) changeDetails += `Removed: ${removedRoles.join(', ')}. `;
+      if (addedRoles.length) changeDetails += `Added Roles: ${addedRoles.join(', ')}. `;
+      if (removedRoles.length) changeDetails += `Removed Roles: ${removedRoles.join(', ')}. `;
       if (!changeDetails) changeDetails = 'Profile details updated.';
 
       setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...formData } as User : u));
@@ -260,6 +296,7 @@ export const UserManagement: React.FC = () => {
         id: `u-${Date.now()}`,
         xp: 0, coins: 0, level: 1, streak: 0,
         active: true,
+        verificationStatus: 'unverified',
         ...formData as User
       };
       setUsers(prev => [newUser, ...prev]);
@@ -268,16 +305,6 @@ export const UserManagement: React.FC = () => {
     }
     setIsModalOpen(false);
   };
-
-  // Compute Permissions for Preview
-  const activePermissions = useMemo(() => {
-      const roles = formData.roles || [];
-      const perms = new Set<string>();
-      roles.forEach(role => {
-          ROLE_PERMISSIONS[role]?.forEach(p => perms.add(p));
-      });
-      return Array.from(perms);
-  }, [formData.roles]);
 
   // User Specific Logs
   const userSpecificLogs = useMemo(() => {
@@ -394,6 +421,7 @@ export const UserManagement: React.FC = () => {
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">User Profile</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Role & Type</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Verification</th>
                 {activeTab === 'pending' && (
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Documents</th>
                 )}
@@ -404,7 +432,7 @@ export const UserManagement: React.FC = () => {
             <tbody className="bg-white divide-y divide-slate-200">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === 'pending' ? 6 : 5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={activeTab === 'pending' ? 7 : 6} className="px-6 py-12 text-center text-slate-500">
                     No users found matching your search.
                   </td>
                 </tr>
@@ -439,6 +467,10 @@ export const UserManagement: React.FC = () => {
                     </div>
                   </td>
                   
+                  <td className="px-6 py-4 whitespace-nowrap">
+                      {getVerificationBadge(user)}
+                  </td>
+
                   {activeTab === 'pending' && (
                       <td className="px-6 py-4 whitespace-nowrap">
                           {(user.roles.includes(UserRole.TEACHER) || user.roles.includes(UserRole.TUTOR) || user.roles.includes(UserRole.SCHOOL_ADMIN)) ? (
@@ -607,8 +639,11 @@ export const UserManagement: React.FC = () => {
                                                   <p className="text-xs text-slate-400">Uploaded recently</p>
                                               </div>
                                           </div>
-                                          <button className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded group-hover:bg-indigo-100 transition-colors">
-                                              View
+                                          <button 
+                                            onClick={() => alert(`Opening document: ${doc}`)} 
+                                            className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 group-hover:bg-white group-hover:border-indigo-300 shadow-sm transition-all"
+                                          >
+                                              <Eye className="w-3.5 h-3.5" /> View
                                           </button>
                                       </div>
                                   ))}
@@ -633,7 +668,7 @@ export const UserManagement: React.FC = () => {
                   <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                       <button 
                         onClick={handleRejectUser}
-                        className="flex-1 py-3 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+                        className="flex-1 py-3 border border-red-200 text-red-600 bg-white hover:bg-red-600 hover:text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
                       >
                           <ThumbsDown className="w-4 h-4" /> Reject
                       </button>
@@ -757,23 +792,49 @@ export const UserManagement: React.FC = () => {
                   })}
                 </div>
 
-                {/* Permissions Preview */}
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Lock className="w-4 h-4 text-slate-400" />
-                        <h4 className="text-xs font-bold text-slate-500 uppercase">Resulting Permissions</h4>
+                {/* Granular Permissions Section */}
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 mt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Key className="w-4 h-4 text-indigo-600" />
+                        <h4 className="text-xs font-bold text-slate-500 uppercase">Capabilities & Permissions</h4>
                     </div>
-                    {activePermissions.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                            {activePermissions.map(p => (
-                                <span key={p} className="text-xs bg-white px-2 py-1 rounded border border-slate-200 text-slate-600 shadow-sm">
-                                    {p}
-                                </span>
-                            ))}
+                    
+                    {Object.entries(PERMISSION_CATEGORIES).map(([category, perms]) => (
+                        <div key={category} className="mb-4 last:mb-0">
+                            <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-2 border-b border-slate-200 pb-1">{category}</h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {perms.map(perm => {
+                                    const inherited = isPermissionInherited(perm, formData.roles || []);
+                                    const explicit = formData.customPermissions?.includes(perm);
+                                    const isChecked = inherited || explicit;
+                                    
+                                    return (
+                                        <label key={perm} className={`flex items-center p-2 rounded border text-xs cursor-pointer transition-all ${inherited ? 'bg-slate-100 border-slate-200 opacity-80 cursor-default' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
+                                            <input 
+                                                type="checkbox"
+                                                checked={!!isChecked}
+                                                disabled={inherited}
+                                                onChange={() => {
+                                                    const current = formData.customPermissions || [];
+                                                    if (current.includes(perm)) {
+                                                        setFormData({ ...formData, customPermissions: current.filter(p => p !== perm) });
+                                                    } else {
+                                                        setFormData({ ...formData, customPermissions: [...current, perm] });
+                                                    }
+                                                }}
+                                                className={`rounded text-indigo-600 focus:ring-indigo-500 mr-2 h-3.5 w-3.5 ${inherited ? 'text-slate-400' : ''}`}
+                                            />
+                                            <span className={inherited ? 'text-slate-500 font-medium' : 'text-slate-700 font-medium'}>
+                                                {perm} 
+                                                {inherited && <span className="text-[9px] ml-1.5 text-slate-400 bg-slate-200 px-1 rounded">(Role)</span>}
+                                                {explicit && <span className="text-[9px] ml-1.5 text-indigo-600 bg-indigo-50 px-1 rounded border border-indigo-100">Custom</span>}
+                                            </span>
+                                        </label>
+                                    )
+                                })}
+                            </div>
                         </div>
-                    ) : (
-                        <p className="text-xs text-slate-400 italic">Select roles to view granted permissions.</p>
-                    )}
+                    ))}
                 </div>
               </div>
             </div>

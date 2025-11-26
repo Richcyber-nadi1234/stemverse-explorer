@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles, Bot } from 'lucide-react';
+import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles, Bot, Star, Trophy } from 'lucide-react';
 import { Lesson } from '../types';
+import { AuthContext } from '../App';
 
 const mockLessons: Lesson[] = [
   // Robotics Course
@@ -24,6 +25,7 @@ const mockLessons: Lesson[] = [
 export const CoursePlayer: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { user, updateUser } = useContext(AuthContext);
   
   const courseLessons = mockLessons.filter(l => l.course_id === courseId);
   // Fallback if courseId doesn't match (e.g. generic demo)
@@ -33,6 +35,10 @@ export const CoursePlayer: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [submissionStatus, setSubmissionStatus] = useState<'pending' | 'submitted' | 'graded'>('pending');
+  
+  // Rewards UI State
+  const [showCoinReward, setShowCoinReward] = useState(false);
+  const [showCompletionBonus, setShowCompletionBonus] = useState(false);
   
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set(['l1']));
 
@@ -57,7 +63,33 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const markLessonComplete = (lessonId: string) => {
-      setCompletedLessons(prev => new Set(prev).add(lessonId));
+      if (!completedLessons.has(lessonId)) {
+          const newCompleted = new Set(completedLessons).add(lessonId);
+          setCompletedLessons(newCompleted);
+          
+          // Check Course Completion
+          const isCourseComplete = newCompleted.size === displayLessons.length;
+          
+          let coinsAwarded = 50;
+          let xpAwarded = 100;
+
+          if (isCourseComplete) {
+              coinsAwarded += 500; // Bonus
+              xpAwarded += 1000;   // Bonus
+              setShowCompletionBonus(true);
+          } else {
+              setShowCoinReward(true);
+              setTimeout(() => setShowCoinReward(false), 3000); // Hide lesson reward after animation
+          }
+
+          // Award Coins & XP
+          if (user) {
+              updateUser({
+                  coins: (user.coins || 0) + coinsAwarded,
+                  xp: (user.xp || 0) + xpAwarded
+              });
+          }
+      }
   };
 
   const joinLiveClass = () => {
@@ -75,7 +107,67 @@ export const CoursePlayer: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row bg-slate-900 text-white -m-4 md:-m-8">
+    <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row bg-slate-900 text-white -m-4 md:-m-8 relative">
+      
+      {/* Coin Reward Animation (Lesson) */}
+      {showCoinReward && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in zoom-in fade-in duration-500 pointer-events-none">
+              <div className="bg-yellow-400 text-yellow-900 px-8 py-6 rounded-3xl shadow-2xl flex flex-col items-center border-4 border-yellow-200">
+                  <Star className="w-16 h-16 fill-yellow-100 animate-spin-slow mb-2" />
+                  <h3 className="text-3xl font-extrabold">+50 Coins</h3>
+                  <p className="font-bold text-sm">+100 XP</p>
+              </div>
+          </div>
+      )}
+
+      {/* Course Completion Modal */}
+      {showCompletionBonus && (
+          <div className="absolute inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-500">
+              <div className="bg-white text-slate-900 rounded-3xl p-8 md:p-12 max-w-lg text-center relative overflow-hidden border-4 border-indigo-500 shadow-[0_0_50px_rgba(99,102,241,0.5)]">
+                  {/* Confetti/Rays Background Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-indigo-50 to-white -z-10"></div>
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-yellow-200/50 via-transparent to-transparent animate-pulse"></div>
+
+                  <div className="w-32 h-32 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl animate-bounce">
+                      <Trophy className="w-16 h-16 text-yellow-600 drop-shadow-md" />
+                  </div>
+                  
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">Course Completed!</h2>
+                  <p className="text-slate-500 text-lg mb-8">You've mastered this subject. Outstanding work!</p>
+                  
+                  <div className="bg-slate-900 text-white rounded-2xl p-6 mb-8 shadow-lg">
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Total Rewards</p>
+                      <div className="flex justify-center gap-8">
+                          <div className="flex flex-col items-center">
+                              <span className="text-3xl font-bold text-yellow-400 flex items-center gap-2"><Star className="fill-yellow-400 w-6 h-6" /> +500</span>
+                              <span className="text-xs font-bold mt-1">Coins</span>
+                          </div>
+                          <div className="w-px bg-slate-700"></div>
+                          <div className="flex flex-col items-center">
+                              <span className="text-3xl font-bold text-purple-400 flex items-center gap-2"><Award className="w-6 h-6" /> +1000</span>
+                              <span className="text-xs font-bold mt-1">XP</span>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                      <button 
+                        onClick={() => navigate('/student-dashboard')}
+                        className="flex-1 py-3.5 bg-slate-200 text-slate-800 rounded-xl font-bold hover:bg-slate-300 transition-colors"
+                      >
+                          Dashboard
+                      </button>
+                      <button 
+                        onClick={() => navigate('/marketplace')}
+                        className="flex-1 py-3.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg"
+                      >
+                          Spend Coins
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         

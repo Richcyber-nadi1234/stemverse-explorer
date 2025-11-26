@@ -19,6 +19,7 @@ export interface User {
   interests?: string[];
   avatarConfig?: AvatarConfig;
   streak?: number;
+  lastLoginDate?: string; // Track last login for daily rewards
   xp?: number;
   level?: number;
   coins?: number; // Virtual currency
@@ -26,6 +27,7 @@ export interface User {
   active: boolean; // New field for account status
   verificationDocuments?: string[]; // Names of uploaded files
   verificationStatus?: 'verified' | 'pending' | 'unverified' | 'rejected';
+  customPermissions?: string[]; // Granular permissions
 }
 
 export interface AuditLogEntry {
@@ -174,6 +176,7 @@ export interface Course {
   students_enrolled?: number;
   rating?: number;
   status?: 'draft' | 'published' | 'archived';
+  contentTypeFocus?: 'video' | 'project' | 'quiz';
 }
 
 export interface AssignmentConfig {
@@ -237,6 +240,8 @@ export interface Submission {
   total_marks: number;
   file_url?: string;
   feedback?: string;
+  questionId?: string; // Link to specific question if applicable
+  submissionContent?: string; // Text content for essays/code
 }
 
 // Project Management Types

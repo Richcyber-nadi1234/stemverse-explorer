@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Save, Plus, Trash, FileText, Video, GripVertical, Sparkles, Bot, X, Loader2, Check, Calendar, Award, AlertCircle, Image as ImageIcon, Film, Wand2, Play, Link as LinkIcon, Scissors, ListPlus } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -39,6 +40,7 @@ export const CourseStudio: React.FC = () => {
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingQuestionFor, setGeneratingQuestionFor] = useState<string | null>(null); // Track specific module for quick quiz gen
   const [aiConfig, setAiConfig] = useState({
     topic: '',
     type: 'text',
@@ -138,6 +140,36 @@ export const CourseStudio: React.FC = () => {
 
   const handleSave = () => {
     alert('Course Saved Successfully!');
+  };
+
+  // --- DRAG AND DROP HANDLERS ---
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    // Prevent dragging if interacting with inputs to allow text selection
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        e.preventDefault();
+        return;
+    }
+    e.dataTransfer.setData("dragIndex", index.toString());
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessary to allow dropping
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const dragIndexStr = e.dataTransfer.getData("dragIndex");
+    if (!dragIndexStr) return;
+    
+    const dragIndex = parseInt(dragIndexStr);
+    if (dragIndex === dropIndex) return;
+
+    const newModules = [...modules];
+    const [movedItem] = newModules.splice(dragIndex, 1);
+    newModules.splice(dropIndex, 0, movedItem);
+    setModules(newModules);
   };
 
   // --- AI HANDLERS ---
@@ -348,6 +380,53 @@ export const CourseStudio: React.FC = () => {
     }
   };
 
+  const handleQuickAiQuizQuestion = async (moduleId: string) => {
+      const module = modules.find(m => m.id === moduleId);
+      if (!module) return;
+      const topic = module.title || "General Knowledge";
+      
+      setGeneratingQuestionFor(moduleId);
+
+      try {
+          const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: `Generate 1 multiple choice quiz question about "${topic}" suitable for a curriculum module.`,
+              config: {
+                  responseMimeType: 'application/json',
+                  responseSchema: {
+                      type: Type.OBJECT,
+                      properties: {
+                          question: { type: Type.STRING },
+                          options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                          correctAnswer: { type: Type.STRING }
+                      }
+                  }
+              }
+          });
+          
+          if (response.text) {
+              const q = JSON.parse(response.text);
+              const newQuestion: QuizQuestion = {
+                  id: Date.now().toString() + Math.random(),
+                  question: q.question,
+                  options: q.options,
+                  correctAnswer: q.correctAnswer
+              };
+               setModules(prev => prev.map(m => {
+                  if (m.id === moduleId) {
+                      return { ...m, quizData: [...(m.quizData || []), newQuestion] };
+                  }
+                  return m;
+              }));
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Failed to generate question. Please try again.");
+      } finally {
+          setGeneratingQuestionFor(null);
+      }
+  };
+
   const applyAIContent = () => {
     if (activeModuleId) {
         if (generatedQuizData.length > 0) {
@@ -445,10 +524,17 @@ export const CourseStudio: React.FC = () => {
                 )}
 
                 {modules.map((mod, idx) => (
-                <div key={mod.id} className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-4 group shadow-sm hover:shadow-md transition-shadow">
+                <div 
+                    key={mod.id} 
+                    className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-4 group shadow-sm hover:shadow-md transition-all"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, idx)}
+                >
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="flex items-center gap-2 flex-1">
-                            <GripVertical className="text-slate-300 cursor-move shrink-0" />
+                        <div className="flex items-center gap-2 flex-1 cursor-move">
+                            <GripVertical className="text-slate-300 shrink-0" />
                             <span className="font-mono text-slate-400 font-bold text-sm shrink-0">{idx + 1}.</span>
                             <input 
                                 value={mod.title}
@@ -515,7 +601,17 @@ export const CourseStudio: React.FC = () => {
                         <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-4">
                             <div className="flex justify-between items-center">
                                 <h4 className="text-sm font-bold text-slate-700 flex items-center"><ListPlus className="w-4 h-4 mr-2" /> Quiz Questions</h4>
-                                <button onClick={() => addQuizQuestion(mod.id)} className="text-xs text-indigo-600 font-bold hover:underline">+ Add Question</button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => handleQuickAiQuizQuestion(mod.id)}
+                                        disabled={generatingQuestionFor === mod.id}
+                                        className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-100 font-bold hover:bg-purple-100 flex items-center"
+                                    >
+                                        {generatingQuestionFor === mod.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                                        AI Add Question
+                                    </button>
+                                    <button onClick={() => addQuizQuestion(mod.id)} className="text-xs text-indigo-600 font-bold hover:underline">+ Add Manual</button>
+                                </div>
                             </div>
                             
                             {(!mod.quizData || mod.quizData.length === 0) ? (
