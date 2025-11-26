@@ -14,7 +14,16 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.4.1",
-    "@google/genai": "latest"
+    "@google/genai": "latest",
+    "@nestjs/common": "^11.1.9",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/jwt": "^11.0.1",
+    "@nestjs/core": "^11.1.9",
+    "@prisma/client": "^7.0.1",
+    "bcrypt": "^6.0.0",
+    "passport-jwt": "^4.0.1",
+    "axios": "^1.13.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

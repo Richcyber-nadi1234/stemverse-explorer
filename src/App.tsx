@@ -79,6 +79,7 @@ export default function App() {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('stemverse_token');
+    // Optional: Call backend logout endpoint if you implement token blacklisting
   }, []);
 
   const updateUser = useCallback((updates: Partial<User>) => {

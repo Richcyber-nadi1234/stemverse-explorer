@@ -3,15 +3,15 @@ import React, { useContext, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AuthContext } from '../App';
 import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
-import { UserRole, User } from '../types';
+import { UserRole } from '../types';
 import { Logo } from '../components/Logo';
+import api from '../services/api';
 
 export const Login: React.FC = () => {
   const { login, user } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Pre-fill with a teacher account for demo convenience
   const [email, setEmail] = useState('teacher@stemverse.com');
   const [password, setPassword] = useState('password');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,71 +25,37 @@ export const Login: React.FC = () => {
     }
   }, [user, navigate, location]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simulate network request and Role Assignment logic
-    setTimeout(() => {
-      let roles: UserRole[] = [UserRole.STUDENT];
-      let firstName = 'Student';
-      let avatarSeed = 'Felix';
-      let isActive = true; // Default
+    try {
+      // Call real backend API
+      const response = await api.post('/auth/login', { email, password });
+      const { access_token, user: userData } = response.data;
 
-      if (email.toLowerCase().includes('admin')) {
-        roles = [UserRole.SCHOOL_ADMIN, UserRole.TEACHER]; // Example: Admin is also a Teacher
-        firstName = 'Admin';
-        avatarSeed = 'Aneka';
-      } else if (email.toLowerCase().includes('teacher')) {
-        roles = [UserRole.TEACHER];
-        firstName = 'Teacher';
-        avatarSeed = 'Jack';
-      } else if (email.toLowerCase().includes('tutor')) {
-        roles = [UserRole.TUTOR];
-        firstName = 'Tutor';
-        avatarSeed = 'Sorelle';
-      } else if (email.toLowerCase().includes('pending')) {
-          // Simulate pending user
-          isActive = false;
-      }
-
-      if (!isActive) {
+      if (!userData.active) {
           setIsLoading(false);
-          setError("Account pending verification. Please check your email or wait for admin approval.");
+          setError("Account pending verification. Please check your email.");
           return;
       }
 
-      const mockUser: User = {
-        id: `u-${Date.now()}`,
-        first_name: firstName,
-        last_name: 'User',
-        email: email,
-        roles: roles,
-        bio: 'Passionate about STEM education and gamified learning.',
-        interests: ['Robotics', 'AI', 'Mathematics'],
-        xp: roles.includes(UserRole.STUDENT) ? 1250 : undefined,
-        level: roles.includes(UserRole.STUDENT) ? 5 : undefined,
-        coins: 450,
-        streak: 12,
-        active: isActive,
-        avatarConfig: {
-          seed: avatarSeed,
-          backgroundColor: 'b6e3f4',
-          accessories: 'glasses'
-        }
-      };
-
-      login(mockUser);
-      setIsLoading(false);
+      login(access_token, userData);
       
       // Intelligent Redirect based on Role
+      const roles = userData.roles || [];
       if (roles.includes(UserRole.STUDENT) && roles.length === 1) {
           navigate('/student-dashboard');
       } else {
           navigate('/dashboard');
       }
-    }, 1200);
+    } catch (err: any) {
+      console.error("Login failed", err);
+      setError(err.response?.data?.message || "Invalid credentials. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -187,19 +153,8 @@ export const Login: React.FC = () => {
                </Link>
              </p>
           </div>
-
-          <div className="mt-8">
-             <p className="text-xs text-center text-slate-400 uppercase font-bold mb-4">Demo Accounts</p>
-             <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setEmail('student@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Student</button>
-                <button onClick={() => setEmail('teacher@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Teacher</button>
-                <button onClick={() => setEmail('admin@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Admin</button>
-                <button onClick={() => setEmail('pending@stemverse.com')} className="text-xs p-2 bg-slate-50 hover:bg-slate-100 rounded border text-slate-600 bg-white">Pending (Test)</button>
-             </div>
-          </div>
-
         </div>
       </div>
     </div>
   );
-};
+}
