@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Attempt to determine API URL from environment or default to localhost
 // In Vite, import.meta.env is used.
-let API_URL = 'http://localhost:3000';
+let API_URL = 'http://localhost:3300';
 
 try {
   // @ts-ignore

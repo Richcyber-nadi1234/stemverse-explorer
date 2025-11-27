@@ -1,11 +1,11 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Save, Plus, Trash, FileText, Video, GripVertical, Sparkles, Bot, X, Loader2, Check, Calendar, Award, AlertCircle, Image as ImageIcon, Film, Wand2, Play, Link as LinkIcon, Scissors, ListPlus, Upload, LayoutTemplate, Send } from 'lucide-react';
-import { GoogleGenAI, Type } from '@google/genai';
+import api from '../services/api';
 import { AuthContext, CourseContext, ToastContext } from '../App';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Course, Module, QuizQuestion } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// AI now handled server-side via backend endpoints; no browser API key needed.
 
 export const CourseStudio: React.FC = () => {
   const { user } = useContext(AuthContext);
@@ -243,46 +243,27 @@ export const CourseStudio: React.FC = () => {
 
   const handleVeoGenerate = async () => {
     if (!mediaImage && !mediaPrompt) return alert("Please provide a text prompt or upload an image.");
-    // @ts-ignore
-    if (window.aistudio && window.aistudio.hasSelectedApiKey && window.aistudio.openSelectKey) {
-        // @ts-ignore
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            // @ts-ignore
-            await window.aistudio.openSelectKey();
-        }
-    }
     setMediaLoading(true);
     setMediaResult(null);
     try {
-      const currentAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Prepare optional image payload
       let base64Image = undefined;
       if (mediaImage) {
           base64Image = await blobToBase64(mediaImage);
       }
       const prompt = mediaPrompt || (base64Image ? "Animate this scene naturally" : "A stunning educational video");
-      let operation = await currentAi.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt: prompt,
-        image: base64Image ? {
-          imageBytes: base64Image,
-          mimeType: mediaImage!.type
-        } : undefined,
-        config: {
-          numberOfVideos: 1,
-          resolution: '720p',
-          aspectRatio: '16:9'
-        }
+      const { data } = await api.post('/ai/video', {
+        prompt,
+        imageBase64: base64Image || undefined,
+        imageMimeType: base64Image ? mediaImage!.type : undefined,
+        resolution: '720p',
+        aspectRatio: '16:9'
       });
-      while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        operation = await currentAi.operations.getVideosOperation({ operation: operation });
-      }
-      const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+      const downloadLink = data?.uri;
       if (downloadLink) {
-        setMediaResult(`${downloadLink}&key=${process.env.API_KEY}`);
+        setMediaResult(downloadLink);
       } else {
-        alert("Video generation failed.");
+        alert('Video generation failed.');
       }
     } catch (e: any) {
       console.error(e);
@@ -307,26 +288,12 @@ export const CourseStudio: React.FC = () => {
     setMediaResult(null);
     try {
       const base64Image = await blobToBase64(mediaImage);
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Image, mimeType: mediaImage.type } },
-            { text: mediaPrompt },
-          ],
-        },
+      const { data } = await api.post('/ai/image-edit', {
+        imageBase64: base64Image,
+        imageMimeType: mediaImage.type,
+        prompt: mediaPrompt,
       });
-      let foundImage = false;
-      for (const part of response.candidates![0].content.parts) {
-        if (part.inlineData) {
-          setMediaResult(`data:image/png;base64,${part.inlineData.data}`);
-          foundImage = true;
-          break;
-        }
-      }
-      if (!foundImage && response.text) {
-          alert("Model returned text instead of image: " + response.text);
-      }
+      setMediaResult(`data:image/png;base64,${data?.imageBase64}`);
     } catch (e) {
       console.error(e);
       alert("Error editing image");
@@ -342,16 +309,11 @@ export const CourseStudio: React.FC = () => {
     setEditSuggestions(null);
     try {
       const base64Video = await blobToBase64(analysisVideo);
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: {
-          parts: [
-            { inlineData: { mimeType: analysisVideo.type, data: base64Video } },
-            { text: "Analyze this video. Please provide: 1. A concise summary. 2. Key learning points. 3. A suggested 'Edit Decision List' (EDL) with timestamps to cut silence or improve pacing." }
-          ]
-        }
+      const { data } = await api.post('/ai/video-analysis', {
+        videoBase64: base64Video,
+        mimeType: analysisVideo.type,
       });
-      const text = response.text || "No analysis generated.";
+      const text = data?.text || 'No analysis generated.';
       if (text.includes('Edit Decision List')) {
           const parts = text.split('Edit Decision List');
           setMediaResult(parts[0]);
@@ -397,74 +359,40 @@ export const CourseStudio: React.FC = () => {
     setGeneratedContent('');
     setGeneratedOutline([]);
     try {
-        if (aiConfig.type === 'outline') {
-             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Create a structured course outline with approximately ${aiConfig.moduleCount} modules about "${aiConfig.topic}". 
-                Target Audience: ${aiConfig.audience}.
-                Learning Objectives: ${aiConfig.objectives}.
-                Additional Context/Requirements: ${aiConfig.additionalContext}.
-                Ensure the flow is logical and cumulative.
-                Return a JSON array of modules. For each module provide a 'title' and a brief content 'description'.`,
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                description: { type: Type.STRING }
-                            }
-                        }
-                    }
-                }
-            });
-            if (response.text) {
-                setGeneratedOutline(JSON.parse(response.text));
-            }
-        } else if (aiConfig.type === 'quiz') {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Generate ${aiConfig.quizCount} quiz questions about ${aiConfig.topic} for ${aiConfig.audience}. Difficulty: ${aiConfig.quizDifficulty}.`,
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                question: { type: Type.STRING },
-                                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                correctAnswer: { type: Type.STRING }
-                            }
-                        }
-                    }
-                }
-            });
-            if (response.text) {
-                const data = JSON.parse(response.text);
-                setGeneratedQuizData(data.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random() })));
-            }
-        } else {
-            const prompt = `Generate a ${aiConfig.length} ${aiConfig.type} module for a course.
-            Topic: ${aiConfig.topic}.
-            Target Audience: ${aiConfig.audience}.
-            Tone: ${aiConfig.tone}.
-            Complexity: ${aiConfig.complexity}.
-            ${aiConfig.keywords ? `Key concepts to cover: ${aiConfig.keywords}.` : ''}
-            Format appropriately with headings, bullet points, and clear paragraphs.`;
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt
-            });
-            setGeneratedContent(response.text || "Failed to generate content.");
-        }
+      if (aiConfig.type === 'outline') {
+        const { data } = await api.post('/ai/outline', {
+          topic: aiConfig.topic,
+          moduleCount: aiConfig.moduleCount,
+          audience: aiConfig.audience,
+          objectives: aiConfig.objectives,
+          additionalContext: aiConfig.additionalContext,
+        });
+        setGeneratedOutline(data?.outline || []);
+      } else if (aiConfig.type === 'quiz') {
+        const { data } = await api.post('/ai/quiz', {
+          topic: aiConfig.topic,
+          quizCount: aiConfig.quizCount,
+          audience: aiConfig.audience,
+          quizDifficulty: aiConfig.quizDifficulty,
+        });
+        const qs = data?.quiz || [];
+        setGeneratedQuizData(qs.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random() })));
+      } else {
+        const prompt = `Generate a ${aiConfig.length} ${aiConfig.type} module for a course.
+        Topic: ${aiConfig.topic}.
+        Target Audience: ${aiConfig.audience}.
+        Tone: ${aiConfig.tone}.
+        Complexity: ${aiConfig.complexity}.
+        ${aiConfig.keywords ? `Key concepts to cover: ${aiConfig.keywords}.` : ''}
+        Format appropriately with headings, bullet points, and clear paragraphs.`;
+        const { data } = await api.post('/ai/chat', { text: prompt, fast: true });
+        setGeneratedContent(data?.text || 'Failed to generate content.');
+      }
     } catch (error) {
-        console.error(error);
-        setGeneratedContent("Error connecting to AI.");
+      console.error(error);
+      setGeneratedContent('Error connecting to AI.');
     } finally {
-        setIsGenerating(false);
+      setIsGenerating(false);
     }
   };
 
@@ -474,30 +402,21 @@ export const CourseStudio: React.FC = () => {
       const topic = module.title || "General Knowledge";
       setGeneratingQuestionFor(moduleId);
       try {
-          const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: `Generate 1 multiple choice quiz question about "${topic}" suitable for a curriculum module.`,
-              config: {
-                  responseMimeType: 'application/json',
-                  responseSchema: {
-                      type: Type.OBJECT,
-                      properties: {
-                          question: { type: Type.STRING },
-                          options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                          correctAnswer: { type: Type.STRING }
-                      }
-                  }
-              }
+          const { data } = await api.post('/ai/quiz', {
+            topic,
+            quizCount: 1,
+            audience: aiConfig.audience,
+            quizDifficulty: aiConfig.quizDifficulty,
           });
-          if (response.text) {
-              const q = JSON.parse(response.text);
+          const q = (data?.quiz || [])[0];
+          if (q) {
               const newQuestion: QuizQuestion = {
                   id: Date.now().toString() + Math.random(),
                   question: q.question,
                   options: q.options,
                   correctAnswer: q.correctAnswer
               };
-               setModules(prev => prev.map(m => {
+              setModules(prev => prev.map(m => {
                   if (m.id === moduleId) {
                       return { ...m, quizData: [...(m.quizData || []), newQuestion] };
                   }

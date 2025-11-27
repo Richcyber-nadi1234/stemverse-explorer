@@ -1,10 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Sparkles, User as UserIcon, Maximize2, Minimize2, MessageCircle, Lightbulb, Mic, MicOff, Volume2, Loader2, Zap } from 'lucide-react';
-import { GoogleGenAI, Modality } from '@google/genai';
 
-// Initialize AI Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import api from '../services/api';
+
 
 const SYSTEM_INSTRUCTION = `You are Newton, the friendly and intelligent AI Tutor for the STEMverse platform. 
 Your target audience is students aged 6-14, as well as teachers and parents.
@@ -131,15 +130,13 @@ export const AITutor: React.FC = () => {
       // Model Selection: Flash Lite for speed, Pro for reasoning
       const modelName = useFastModel ? 'gemini-flash-lite-latest' : 'gemini-3-pro-preview';
       
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: { parts: [{ text: userText }] },
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION
-        }
-      });
-
-      const responseText = response.text || "I couldn't generate a response.";
+      if (!ai) {
+        const responseText = "AI is disabled. Set GEMINI_API_KEY in .env to enable Newton.";
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: responseText, sender: 'bot' }]);
+        return;
+      }
+      const { data } = await api.post('/ai/chat', { text: userText, fast: useFastModel, systemInstruction: SYSTEM_INSTRUCTION });
+      const responseText = data?.text || "I couldn't generate a response.";
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: responseText, sender: 'bot' }]);
     } catch (error) {
       console.error("AI Error:", error);
@@ -193,23 +190,9 @@ export const AITutor: React.FC = () => {
     setIsTyping(true);
     try {
       const base64Audio = await blobToBase64(audioBlob);
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: 'audio/webm', // or match blob type
-                data: base64Audio
-              }
-            },
-            { text: "Transcribe this audio exactly as spoken." }
-          ]
-        }
-      });
-      
-      if (response.text) {
-        setInputValue(response.text.trim());
+      const { data } = await api.post('/ai/transcribe', { audioBase64: base64Audio, mimeType: 'audio/webm' });
+      if (data?.text) {
+        setInputValue(data.text.trim());
       }
     } catch (error) {
       console.error("Transcription Error:", error);
@@ -225,20 +208,8 @@ export const AITutor: React.FC = () => {
 
     setIsSpeaking(true);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-tts',
-        contents: [{ parts: [{ text: lastBotMessage.text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const { data } = await api.post('/ai/tts', { text: lastBotMessage.text });
+      const base64Audio = data?.audioBase64;
       if (base64Audio) {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const audioBuffer = await decodeAudioData(base64Audio, audioContext);

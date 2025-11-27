@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { CheckCircle, Clock, Eye, FileText, Download, X, MessageSquare, Save, Sparkles, Loader2 } from 'lucide-react';
 import { Submission } from '../types';
 import { mockQuestions } from './QuestionBank';
-import { GoogleGenAI, Type } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+import api from '../services/api';
 
 const mockSubmissions: Submission[] = [
   { 
@@ -59,60 +59,30 @@ export const Grading: React.FC = () => {
 
   const handleGenerateFeedback = async () => {
       if (!gradingItem || !gradingItem.submissionContent || !gradingItem.questionId) return;
-      
       setIsGeneratingFeedback(true);
       
       const question = mockQuestions.find(q => q.id === gradingItem.questionId);
       const questionText = question ? question.text : "Question text unavailable";
       const maxMarks = gradingItem.total_marks;
 
-      const prompt = `
-        You are an expert teacher grading a student's submission.
-        
-        Question: "${questionText}"
-        Maximum Score: ${maxMarks}
-        
-        Student Submission:
-        """
-        ${gradingItem.submissionContent}
-        """
-        
-        Please evaluate the submission based on accuracy, logic, and clarity.
-        Provide a JSON response with:
-        - suggestedScore: An integer representing the score out of ${maxMarks}.
-        - positiveFeedback: A brief comment on what was done well.
-        - improvementAreas: A brief comment on what could be improved.
-      `;
 
       try {
-          const response = await ai.models.generateContent({
-              model: 'gemini-3-pro-preview',
-              contents: prompt,
-              config: {
-                  responseMimeType: 'application/json',
-                  responseSchema: {
-                      type: Type.OBJECT,
-                      properties: {
-                          suggestedScore: { type: Type.INTEGER },
-                          positiveFeedback: { type: Type.STRING },
-                          improvementAreas: { type: Type.STRING },
-                      }
-                  }
-              }
+          const { data } = await api.post('/ai/grade', {
+            question: questionText,
+            submission: gradingItem.submissionContent,
+            maxMarks,
           });
-
-          if (response.text) {
-              const result = JSON.parse(response.text);
-              setScoreInput(result.suggestedScore.toString());
-              setFeedbackInput(
-                  `**AI Feedback Suggestion:**\n\n` +
-                  `✅ **Strengths:** ${result.positiveFeedback}\n\n` +
-                  `💡 **Improvements:** ${result.improvementAreas}`
-              );
+          if (data) {
+            setScoreInput(((data as any).suggestedScore ?? maxMarks).toString());
+            setFeedbackInput(
+              `**AI Feedback Suggestion:**\n\n` +
+              `✅ **Strengths:** ${(data as any).positiveFeedback || ''}\n\n` +
+              `💡 **Improvements:** ${(data as any).improvementAreas || ''}`
+            );
           }
       } catch (error) {
-          console.error("AI Feedback Error:", error);
-          alert("Failed to generate AI feedback. Please try again.");
+          console.error('AI Feedback Error:', error);
+          alert('Failed to generate AI feedback. Please try again.');
       } finally {
           setIsGeneratingFeedback(false);
       }
