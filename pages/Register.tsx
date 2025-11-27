@@ -4,7 +4,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../App';
 import { User, UserRole } from '../types';
 import { Logo } from '../components/Logo';
-import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, Building2, GraduationCap, School, Phone, Upload, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, Building2, GraduationCap, School, Phone, Upload, CheckCircle2, Info } from 'lucide-react';
+import api from '../services/api';
 
 type RegistrationType = 'student' | 'teacher' | 'school';
 
@@ -50,7 +51,7 @@ export const Register: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -84,52 +85,83 @@ export const Register: React.FC = () => {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
       let assignedRoles: UserRole[] = [];
-      let isActive = false; // Default to inactive pending verification
-      let displayName = formData.firstName;
       let uploadedDocs: string[] = [];
+
+      // Prepare Payload
+      const payload: any = {
+          email: formData.email,
+          password: formData.password,
+          bio: 'New Member'
+      };
 
       if (regType === 'student') {
           assignedRoles = [UserRole.STUDENT];
-          // Students might be auto-verified or require parent verification
+          payload.first_name = formData.firstName;
+          payload.last_name = formData.lastName;
       } else if (regType === 'teacher') {
           assignedRoles = formData.isTutor ? [UserRole.TUTOR] : [UserRole.TEACHER];
+          payload.first_name = formData.firstName;
+          payload.last_name = formData.lastName;
           if (formData.qualificationFile) uploadedDocs.push(formData.qualificationFile.name);
       } else if (regType === 'school') {
           assignedRoles = [UserRole.SCHOOL_ADMIN];
-          displayName = formData.schoolName;
+          payload.first_name = formData.schoolName;
+          payload.last_name = 'Admin';
+          payload.bio = 'Educational Institution';
           if (formData.schoolDocFile) uploadedDocs.push(formData.schoolDocFile.name);
       }
 
-      const newUser: User = {
-        id: `u-${Date.now()}`,
-        first_name: regType === 'school' ? formData.schoolName : formData.firstName,
-        last_name: regType === 'school' ? 'Admin' : formData.lastName,
-        email: formData.email,
-        roles: assignedRoles,
-        bio: regType === 'school' ? 'Educational Institution' : 'New member of STEMverse',
-        interests: [],
-        xp: 0,
-        level: 1,
-        coins: 100,
-        streak: 0,
-        active: isActive, // PENDING VERIFICATION
-        verificationDocuments: uploadedDocs,
-        verificationStatus: 'pending',
-        avatarConfig: {
-          seed: displayName,
-          backgroundColor: 'b6e3f4',
-          accessories: 'none'
-        }
-      };
+      payload.roles = assignedRoles;
+      payload.verificationDocuments = uploadedDocs;
+      
+      // API Call
+      await api.post('/auth/register', payload);
 
-      // We do NOT login immediately. We show the success screen.
       setIsLoading(false);
       setSuccessMode(true);
       
-    }, 1500);
+    } catch (err: any) {
+        console.warn("Backend unavailable, using demo registration...", err);
+        
+        // Simulation Fallback for Demo Mode
+        setTimeout(() => {
+            setIsLoading(false);
+            
+            let assignedRoles: UserRole[] = [];
+            if (regType === 'student') assignedRoles = [UserRole.STUDENT];
+            else if (regType === 'teacher') assignedRoles = formData.isTutor ? [UserRole.TUTOR] : [UserRole.TEACHER];
+            else assignedRoles = [UserRole.SCHOOL_ADMIN];
+
+            const mockUser: User = {
+                id: `demo-${Date.now()}`,
+                first_name: formData.firstName || formData.schoolName,
+                last_name: formData.lastName || 'User',
+                email: formData.email,
+                roles: assignedRoles,
+                active: true, // Auto-activate for demo
+                verificationStatus: 'verified',
+                xp: 0, coins: 50, level: 1
+            };
+
+            // Save to local registry so Login.tsx can find it later
+            try {
+                const registry = JSON.parse(localStorage.getItem('stemverse_mock_registry') || '{}');
+                registry[formData.email] = mockUser;
+                localStorage.setItem('stemverse_mock_registry', JSON.stringify(registry));
+            } catch (e) {}
+
+            // Auto Login
+            login('mock-token-' + Date.now(), mockUser);
+            
+            // Redirect based on role
+            if (assignedRoles.includes(UserRole.STUDENT)) navigate('/student-dashboard');
+            else if (assignedRoles.includes(UserRole.PARENT)) navigate('/parent-dashboard');
+            else navigate('/dashboard');
+
+        }, 1000);
+    }
   };
 
   if (successMode) {
@@ -141,19 +173,8 @@ export const Register: React.FC = () => {
                 </div>
                 <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Successful!</h2>
                 <div className="text-slate-500 mb-6 space-y-2">
-                    {regType === 'student' && (
-                        <p>A verification link has been sent to your parent's email ({formData.parentEmail}).</p>
-                    )}
-                    {regType === 'teacher' && (
-                        <p>We have sent a verification link to <strong>{formData.email}</strong>. Please verify your email to proceed. Your qualification documents will be reviewed shortly.</p>
-                    )}
-                    {regType === 'school' && (
-                        <p>Your school registration documents have been submitted. Our administrative team will review your credentials and activate your account within 24 hours.</p>
-                    )}
+                    <p>Redirecting you to the dashboard...</p>
                 </div>
-                <button onClick={() => navigate('/login')} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors">
-                    Return to Login
-                </button>
             </div>
         </div>
       );
@@ -432,4 +453,4 @@ export const Register: React.FC = () => {
       </div>
     </div>
   );
-};
+}

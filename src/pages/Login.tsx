@@ -60,32 +60,27 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [usingMock, setUsingMock] = useState(false);
 
-  // Redirect if already logged in (or just logged in via context update)
+  // Redirect if already logged in
   React.useEffect(() => {
     if (user) {
-        const state = location.state as { from?: { pathname: string } } | null;
-        const from = state?.from?.pathname;
-        
-        // Determine target: use 'from' state if it exists (and isn't login), otherwise use role-based dashboard
-        // We avoid defaulting to '/' because that sends users to Landing page
-        const target = (from && from !== '/login') ? from : getDashboardPath(user.roles || []);
-        navigate(target, { replace: true });
+        const from = (location.state as any)?.from?.pathname || '/';
+        navigate(from, { replace: true });
     }
   }, [user, navigate, location]);
-
-  const getDashboardPath = (roles: UserRole[]) => {
-      if (roles.includes(UserRole.STUDENT) && roles.length === 1) {
-          return '/student-dashboard';
-      } else if (roles.includes(UserRole.PARENT)) {
-          return '/parent-dashboard';
-      } else {
-          return '/dashboard'; // Instructor/Admin dashboard
-      }
-  };
 
   const handleQuickFill = (roleEmail: string) => {
       setEmail(roleEmail);
       setPassword('password');
+  };
+
+  const handleRedirect = (roles: UserRole[]) => {
+      if (roles.includes(UserRole.STUDENT) && roles.length === 1) {
+          navigate('/student-dashboard');
+      } else if (roles.includes(UserRole.PARENT)) {
+          navigate('/parent-dashboard');
+      } else {
+          navigate('/dashboard');
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,56 +100,29 @@ export const Login: React.FC = () => {
           return;
       }
 
-      // Login updates the context, which triggers the useEffect above to handle redirect
       login(access_token, userData);
+      handleRedirect(userData.roles || []);
 
     } catch (err: any) {
-      console.warn("Backend login failed, attempting fallback...", err);
+      console.error("Backend login failed", err);
       
       // 2. Fallback to Mock Data if Network Error or Developer Mode
       const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message === 'Network Error';
       
       if (isNetworkError) {
-          // A. Check Static Mocks
-          let mockUser = MOCK_USERS[email];
-
-          // B. Check Dynamic Mocks (from Registration)
-          if (!mockUser) {
-              try {
-                  const registry = JSON.parse(localStorage.getItem('stemverse_mock_registry') || '{}');
-                  if (registry[email]) {
-                      mockUser = registry[email];
-                  }
-              } catch (e) { console.error("Registry error", e); }
-          }
-
-          // C. Generative Fallback (Create a temp user on the fly if password matches)
-          if (!mockUser && password === 'password') {
-               mockUser = {
-                   id: `temp-${Date.now()}`,
-                   first_name: email.split('@')[0],
-                   last_name: 'User',
-                   email: email,
-                   roles: [UserRole.STUDENT],
-                   active: true,
-                   level: 1,
-                   xp: 0,
-                   coins: 100,
-                   streak: 0
-               };
-          }
-
-          if (mockUser && (password === 'password' || password === '123456')) {
+          // Check if credentials match a mock user (simple password check for dev)
+          const mockUser = MOCK_USERS[email];
+          if (mockUser && password === 'password') {
               console.log("Using Mock Fallback Login");
               setUsingMock(true);
               // Simulate network delay
               setTimeout(() => {
                   login('mock-jwt-token', mockUser);
-                  // Context update triggers useEffect redirect
+                  handleRedirect(mockUser.roles);
               }, 800);
               return;
           } else {
-             setError("Backend unreachable. For demo, use password 'password'.");
+             setError("Network Error: Backend unreachable. Try the sample logins.");
           }
       } else {
         setError(err.response?.data?.message || "Invalid credentials. Please try again.");

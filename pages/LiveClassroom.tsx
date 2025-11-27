@@ -197,25 +197,155 @@ export const LiveClassroom: React.FC = () => {
   );
 
   const Whiteboard = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [color, setColor] = useState('#000000');
+    const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
+    const [lineWidth, setLineWidth] = useState(2);
+
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        // Set canvas resolution to match display size
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height); // White background
+        }
+      }
+    }, []);
+
+    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      setIsDrawing(true);
+      
+      const { offsetX, offsetY } = getCoordinates(e, canvas);
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY);
+    };
+
+    const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (!isDrawing) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const { offsetX, offsetY } = getCoordinates(e, canvas);
+      
+      ctx.lineWidth = tool === 'eraser' ? 20 : lineWidth;
+      ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
+      
+      ctx.lineTo(offsetX, offsetY);
+      ctx.stroke();
+    };
+
+    const stopDrawing = () => {
+      setIsDrawing(false);
+    };
+
+    const getCoordinates = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+        // Handle both mouse and touch
+        if ((e as React.TouchEvent).touches && (e as React.TouchEvent).touches.length > 0) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                offsetX: (e as React.TouchEvent).touches[0].clientX - rect.left,
+                offsetY: (e as React.TouchEvent).touches[0].clientY - rect.top
+            };
+        } else {
+            return {
+                offsetX: (e as React.MouseEvent).nativeEvent.offsetX,
+                offsetY: (e as React.MouseEvent).nativeEvent.offsetY
+            };
+        }
+    };
+
+    const clearBoard = () => {
+        const canvas = canvasRef.current;
+        if(canvas) {
+            const ctx = canvas.getContext('2d');
+            if(ctx) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+    };
+
     return (
-      <div className="flex-1 bg-slate-100 p-4 flex flex-col h-full rounded-2xl overflow-hidden">
-         <div className="bg-white p-2 border-b flex justify-between items-center rounded-t-xl">
-            <div className="flex gap-2 overflow-x-auto">
-                <button className="p-2 bg-indigo-100 text-indigo-600 rounded"><PenTool className="w-4 h-4" /></button>
-                <button className="p-2 hover:bg-slate-100 rounded"><Eraser className="w-4 h-4" /></button>
-                <div className="w-px h-6 bg-slate-300 mx-2"></div>
-                <div className="flex gap-1">
-                    {['#000', '#ef4444', '#22c55e', '#3b82f6'].map(c => (
-                        <div key={c} className="w-6 h-6 rounded-full cursor-pointer shrink-0" style={{backgroundColor: c}}></div>
+      <div className="flex-1 bg-slate-100 p-2 sm:p-4 flex flex-col h-full rounded-2xl overflow-hidden relative">
+         <div className="bg-white p-2 border-b flex justify-between items-center rounded-t-xl shadow-sm z-10">
+            <div className="flex gap-2 items-center overflow-x-auto no-scrollbar">
+                <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setTool('pen')} 
+                        className={`p-2 rounded transition-all ${tool === 'pen' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        title="Pen"
+                    >
+                        <PenTool className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => setTool('eraser')} 
+                        className={`p-2 rounded transition-all ${tool === 'eraser' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        title="Eraser"
+                    >
+                        <Eraser className="w-4 h-4" />
+                    </button>
+                </div>
+                
+                <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                
+                <div className="flex gap-1.5 items-center">
+                    {['#000000', '#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6'].map(c => (
+                        <button 
+                            key={c} 
+                            onClick={() => { setColor(c); setTool('pen'); }}
+                            className={`w-6 h-6 rounded-full cursor-pointer shrink-0 border-2 transition-transform hover:scale-110 ${color === c && tool === 'pen' ? 'border-slate-900 scale-110' : 'border-transparent'}`} 
+                            style={{backgroundColor: c}}
+                        ></button>
                     ))}
                 </div>
+
+                <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
+                <input 
+                    type="range" 
+                    min="1" 
+                    max="10" 
+                    value={lineWidth} 
+                    onChange={(e) => setLineWidth(Number(e.target.value))}
+                    className="w-20 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    title="Brush Size"
+                />
             </div>
-            <span className="text-xs font-bold text-slate-400 uppercase hidden sm:block">Interactive Whiteboard</span>
+            <button 
+                onClick={clearBoard} 
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Clear Board"
+            >
+                <Trash2 className="w-4 h-4" />
+            </button>
          </div>
-         <div className="flex-1 bg-white shadow-inner relative cursor-crosshair">
-             <div className="absolute inset-0 flex items-center justify-center text-slate-300 pointer-events-none">
-                 Start drawing...
-             </div>
+         <div className="flex-1 bg-white relative touch-none">
+             <canvas 
+                ref={canvasRef}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                className="absolute inset-0 w-full h-full cursor-crosshair"
+             />
          </div>
       </div>
     );

@@ -1,9 +1,9 @@
 
 import React, { useState, useContext } from 'react';
-import { Search, Star, ShoppingCart, Filter, User, BookOpen, Video, Check, Plus, DollarSign, Package, ArrowLeft, Wallet, Tag, X, TrendingUp, Eye, ShoppingBag, FileText, Calendar, Trash2, Edit, Download, ExternalLink } from 'lucide-react';
+import { Search, Star, ShoppingCart, Filter, User, BookOpen, Video, Check, Plus, DollarSign, Package, ArrowLeft, Wallet, Tag, X, TrendingUp, Eye, ShoppingBag, FileText, Calendar, Trash2, Edit, Download, ExternalLink, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import { MarketplaceItem } from '../types';
-import { AuthContext } from '../App';
+import { AuthContext, ToastContext, CourseContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 
 const initialItems: MarketplaceItem[] = [
@@ -66,6 +66,8 @@ const analyticsData = {
 
 export const Marketplace: React.FC = () => {
   const { user, updateUser } = useContext(AuthContext);
+  const { showToast } = useContext(ToastContext);
+  const { enrollCourse, enrolledCourseIds } = useContext(CourseContext);
   const navigate = useNavigate();
   const [view, setView] = useState<'browse' | 'purchases' | 'creator'>('browse');
   
@@ -80,6 +82,10 @@ export const Marketplace: React.FC = () => {
   // UI State
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
   const [newListing, setNewListing] = useState<Partial<MarketplaceItem>>({ type: 'worksheet' });
 
@@ -88,8 +94,8 @@ export const Marketplace: React.FC = () => {
   // --- Actions ---
 
   const handleBuy = (item: MarketplaceItem) => {
-    if (purchasedItems.find(i => i.id === item.id)) {
-        alert('You already own this item!');
+    if (purchasedItems.find(i => i.id === item.id) || (item.type === 'course' && enrolledCourseIds.includes(item.id))) {
+        showToast('You already own this item!', 'info');
         return;
     }
     
@@ -97,22 +103,42 @@ export const Marketplace: React.FC = () => {
       if (window.confirm(`Purchase "${item.title}" for 🪙${item.price}?`)) {
         updateUser({ coins: currentBalance - item.price });
         setPurchasedItems(prev => [item, ...prev]);
+        
+        if (item.type === 'course') {
+            enrollCourse(item.id);
+        }
+
         setSelectedItem(null); // Close modal if open
-        alert('Purchase successful! Added to My Purchases.');
+        showToast('Purchase successful!', 'success');
       }
     } else {
-      alert(`Insufficient funds! You need 🪙${item.price - currentBalance} more coins.`);
+      showToast(`Insufficient funds! You need 🪙${item.price - currentBalance} more coins.`, 'error');
     }
   };
 
   const handleAccessItem = (item: MarketplaceItem) => {
       if (item.type === 'course') {
-          navigate('/lms'); // In a real app, navigate to specific course ID
+          navigate(`/lms/course/${item.id}`); 
       } else if (item.type === 'worksheet') {
-          alert(`Downloading ${item.title}.pdf...`);
+          showToast(`Downloading ${item.title}.pdf...`, 'info');
+          setTimeout(() => showToast('Download completed.', 'success'), 2000);
       } else if (item.type === 'tutor_session') {
-          alert(`Opening scheduler for ${item.title}...`);
+          setSelectedItem(item);
+          setIsBookingModalOpen(true);
       }
+  };
+
+  const handleConfirmBooking = () => {
+      if (!bookingDate || !bookingTime) {
+          showToast('Please select a date and time.', 'error');
+          return;
+      }
+      setIsBookingModalOpen(false);
+      setSelectedItem(null);
+      showToast(`Session booked for ${bookingDate} at ${bookingTime}!`, 'success');
+      // Reset form
+      setBookingDate('');
+      setBookingTime('');
   };
 
   // --- Creator Actions ---
@@ -130,7 +156,10 @@ export const Marketplace: React.FC = () => {
   };
 
   const handleSaveListing = () => {
-      if (!newListing.title || !newListing.price) return;
+      if (!newListing.title || !newListing.price) {
+          showToast('Please fill in required fields', 'error');
+          return;
+      }
       
       const listingData: MarketplaceItem = {
           id: editingListingId || `own_${Date.now()}`,
@@ -147,9 +176,11 @@ export const Marketplace: React.FC = () => {
       if (editingListingId) {
           setMyListings(prev => prev.map(item => item.id === editingListingId ? listingData : item));
           setItems(prev => prev.map(item => item.id === editingListingId ? listingData : item));
+          showToast('Listing updated successfully', 'success');
       } else {
           setMyListings(prev => [listingData, ...prev]);
           setItems(prev => [listingData, ...prev]);
+          showToast('New listing created successfully', 'success');
       }
       
       setIsListingModalOpen(false);
@@ -159,6 +190,7 @@ export const Marketplace: React.FC = () => {
       if (window.confirm('Are you sure you want to remove this listing?')) {
           setMyListings(prev => prev.filter(item => item.id !== id));
           setItems(prev => prev.filter(item => item.id !== id));
+          showToast('Listing deleted', 'info');
       }
   };
 
@@ -252,7 +284,7 @@ export const Marketplace: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search..." 
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50 focus:bg-white transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-slate-50 focus:bg-white transition-colors text-slate-900 placeholder-slate-500"
                     />
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
@@ -310,7 +342,7 @@ export const Marketplace: React.FC = () => {
                                 <div className="font-bold text-indigo-600 text-lg">
                                     🪙 {item.price}
                                 </div>
-                                {purchasedItems.find(i => i.id === item.id) ? (
+                                {(purchasedItems.find(i => i.id === item.id) || (item.type === 'course' && enrolledCourseIds.includes(item.id))) ? (
                                     <span className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center">
                                         <Check className="w-3 h-3 mr-1" /> Owned
                                     </span>
@@ -523,19 +555,64 @@ export const Marketplace: React.FC = () => {
                               <p className="text-xs text-slate-500 uppercase font-bold">Price</p>
                               <p className="text-2xl font-bold text-indigo-600">🪙 {selectedItem.price}</p>
                           </div>
-                          {purchasedItems.find(i => i.id === selectedItem.id) ? (
+                          {(purchasedItems.find(i => i.id === selectedItem.id) || (selectedItem.type === 'course' && enrolledCourseIds.includes(selectedItem.id))) ? (
                               <button disabled className="flex-1 py-3 bg-green-100 text-green-700 rounded-xl font-bold flex items-center justify-center">
                                   <Check className="w-5 h-5 mr-2" /> Owned
                               </button>
                           ) : (
                               <button 
-                                onClick={() => handleBuy(selectedItem)}
+                                onClick={(e) => { e.stopPropagation(); handleBuy(selectedItem); }}
                                 className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
                               >
                                   Buy Now
                               </button>
                           )}
                       </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- BOOKING MODAL --- */}
+      {isBookingModalOpen && selectedItem && (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 overflow-hidden">
+                  <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
+                      <h3 className="font-bold text-slate-900">Schedule Session</h3>
+                      <button onClick={() => setIsBookingModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
+                  </div>
+                  <div className="space-y-4">
+                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                          <Calendar className="w-5 h-5 text-indigo-600" />
+                          <div>
+                              <p className="text-sm font-bold text-slate-900">{selectedItem.title}</p>
+                              <p className="text-xs text-slate-500">1 Hour • Online</p>
+                          </div>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Date</label>
+                          <input 
+                            type="date" 
+                            value={bookingDate}
+                            onChange={(e) => setBookingDate(e.target.value)}
+                            className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Time</label>
+                          <input 
+                            type="time" 
+                            value={bookingTime}
+                            onChange={(e) => setBookingTime(e.target.value)}
+                            className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                          />
+                      </div>
+                      <button 
+                        onClick={handleConfirmBooking}
+                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg mt-2"
+                      >
+                          Confirm Booking
+                      </button>
                   </div>
               </div>
           </div>
@@ -557,7 +634,7 @@ export const Marketplace: React.FC = () => {
                             type="text"
                             value={newListing.title || ''}
                             onChange={e => setNewListing({...newListing, title: e.target.value})}
-                            className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 placeholder-slate-500"
                             placeholder="e.g. Math Worksheet"
                           />
                       </div>
@@ -567,7 +644,7 @@ export const Marketplace: React.FC = () => {
                               <select 
                                 value={newListing.type}
                                 onChange={e => setNewListing({...newListing, type: e.target.value as any})}
-                                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                               >
                                   <option value="worksheet">Worksheet</option>
                                   <option value="course">Course</option>
@@ -580,7 +657,7 @@ export const Marketplace: React.FC = () => {
                                 type="number"
                                 value={newListing.price || ''}
                                 onChange={e => setNewListing({...newListing, price: Number(e.target.value)})}
-                                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 placeholder-slate-500"
                                 placeholder="50"
                               />
                           </div>
@@ -591,7 +668,7 @@ export const Marketplace: React.FC = () => {
                             rows={4}
                             value={newListing.description || ''}
                             onChange={e => setNewListing({...newListing, description: e.target.value})}
-                            className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 placeholder-slate-500"
                             placeholder="Describe what the student will learn..."
                           />
                       </div>

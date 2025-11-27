@@ -49,6 +49,8 @@ export const Landing: React.FC = () => {
     if (user) {
       if (user.roles.includes(UserRole.STUDENT) && user.roles.length === 1) {
           navigate('/student-dashboard');
+      } else if (user.roles.includes(UserRole.PARENT)) {
+          navigate('/parent-dashboard');
       } else {
           navigate('/dashboard');
       }

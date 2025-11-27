@@ -1,16 +1,49 @@
 
 import React, { useState } from 'react';
-import { FileDown, Printer, Loader2, FileSpreadsheet, ChevronRight, ChevronLeft, Check, FileText, Calendar, Users, BarChart, X, ClipboardCheck, Sliders } from 'lucide-react';
+import { FileDown, Printer, Loader2, FileSpreadsheet, ChevronRight, ChevronLeft, Check, FileText, Calendar, Users, BarChart2, X, ClipboardCheck, Sliders, PieChart as PieIcon, Activity, Download } from 'lucide-react';
 import { Report } from '../types';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, AreaChart, Area, Legend 
+} from 'recharts';
 
 const REPORT_TYPES = [
   { id: 'term_report', title: "Student Term Report", type: 'academic', icon: FileText, description: "Detailed academic performance per student." },
-  { id: 'class_summary', title: "Class Performance Summary", type: 'academic', icon: BarChart, description: "Aggregated grades and averages by subject." },
+  { id: 'class_summary', title: "Class Performance Summary", type: 'academic', icon: BarChart2, description: "Aggregated grades and averages by subject." },
   { id: 'attendance', title: "Attendance Report", type: 'admin', icon: Calendar, description: "Daily or monthly attendance logs." },
-  { id: 'exam_analytics', title: "Exam Analytics", type: 'academic', icon: Printer, description: "Item analysis and difficulty distribution." },
+  { id: 'exam_analytics', title: "Exam Analytics", type: 'academic', icon: PieIcon, description: "Item analysis and difficulty distribution." },
   { id: 'transcript', title: "Official Transcript", type: 'academic', icon: FileText, description: "Cumulative record for university applications." },
   { id: 'finance', title: "Financial Report", type: 'admin', icon: FileSpreadsheet, description: "Fee collection and outstanding balances." }
 ];
+
+// Mock Analytics Data
+const mockExamAnalytics = {
+  passRates: [
+    { subject: 'Mathematics', passRate: 85 },
+    { subject: 'Science', passRate: 92 },
+    { subject: 'English', passRate: 78 },
+    { subject: 'History', passRate: 88 },
+    { subject: 'Computing', passRate: 95 },
+  ],
+  difficultyDistribution: [
+    { name: 'Easy', value: 30, color: '#10b981' },
+    { name: 'Medium', value: 50, color: '#f59e0b' },
+    { name: 'Hard', value: 20, color: '#ef4444' },
+  ],
+  scoreDistribution: [
+    { range: '0-20', students: 2 },
+    { range: '21-40', students: 5 },
+    { range: '41-60', students: 12 },
+    { range: '61-80', students: 25 },
+    { range: '81-100', students: 18 },
+  ],
+  kpis: {
+    totalCandidates: 62,
+    averageScore: 76.5,
+    highestScore: 98,
+    lowestScore: 15
+  }
+};
 
 export const Reports: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,6 +63,9 @@ export const Reports: React.FC = () => {
     anonymize: false,
     deliveryMethod: 'download'
   });
+
+  // Analytics View State
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
   const handleOpenWizard = (report: typeof REPORT_TYPES[0]) => {
     setSelectedReport(report);
@@ -61,6 +97,11 @@ export const Reports: React.FC = () => {
       setGeneratedReports([newReport, ...generatedReports]);
       setIsGenerating(false);
       handleCloseWizard();
+      
+      // Auto-open analytics if that was selected
+      if (selectedReport?.id === 'exam_analytics') {
+          setShowAnalyticsModal(true);
+      }
     }, 2000);
   };
 
@@ -132,9 +173,19 @@ export const Reports: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <button className="px-4 py-2 text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition-colors">
-                  Download
-                </button>
+                <div className="flex gap-2">
+                    {report.type === 'Exam Analytics' && (
+                        <button 
+                            onClick={() => setShowAnalyticsModal(true)}
+                            className="px-4 py-2 text-sm text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg font-medium transition-colors flex items-center"
+                        >
+                            <Activity className="w-4 h-4 mr-2" /> View Dashboard
+                        </button>
+                    )}
+                    <button className="px-4 py-2 text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition-colors">
+                        Download
+                    </button>
+                </div>
               </div>
             ))
           )}
@@ -212,7 +263,7 @@ export const Reports: React.FC = () => {
                         </select>
                     </div>
 
-                    {['term_report', 'class_summary', 'attendance', 'exam_analytics'].includes(selectedReport.id) && (
+                    {['term_report', 'class_summary', 'attendance'].includes(selectedReport.id) && (
                         <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Target Class</label>
                         <div className="grid grid-cols-3 gap-3">
@@ -348,7 +399,9 @@ export const Reports: React.FC = () => {
                         </div>
                         <div className="flex justify-between">
                             <span className="text-slate-500">Scope</span>
-                            <span className="font-bold text-slate-900">{config.classId} • {config.term}</span>
+                            <span className="font-bold text-slate-900">
+                                {config.examId ? `Exam: ${config.examId}` : `${config.classId} • ${config.term}`}
+                            </span>
                         </div>
                         {config.dateRange.start && (
                              <div className="flex justify-between">
@@ -404,6 +457,119 @@ export const Reports: React.FC = () => {
 
           </div>
         </div>
+      )}
+
+      {/* Analytics Dashboard Modal */}
+      {showAnalyticsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[90vh]">
+                  <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                      <div>
+                          <h2 className="text-2xl font-bold text-slate-900">Exam Analytics Dashboard</h2>
+                          <p className="text-slate-500 text-sm">Real-time insights for {config.examId || 'Selected Exam'}</p>
+                      </div>
+                      <button onClick={() => setShowAnalyticsModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+                      {/* KPI Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                          {[
+                              { label: 'Total Candidates', value: mockExamAnalytics.kpis.totalCandidates, color: 'text-blue-600', bg: 'bg-blue-50' },
+                              { label: 'Average Score', value: `${mockExamAnalytics.kpis.averageScore}%`, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                              { label: 'Highest Score', value: `${mockExamAnalytics.kpis.highestScore}%`, color: 'text-green-600', bg: 'bg-green-50' },
+                              { label: 'Lowest Score', value: `${mockExamAnalytics.kpis.lowestScore}%`, color: 'text-red-600', bg: 'bg-red-50' },
+                          ].map((kpi, i) => (
+                              <div key={i} className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow">
+                                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{kpi.label}</p>
+                                  <div className={`text-3xl font-extrabold ${kpi.color}`}>{kpi.value}</div>
+                              </div>
+                          ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          {/* Pass Rates Bar Chart */}
+                          <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                              <h3 className="font-bold text-slate-900 mb-6 flex items-center">
+                                  <BarChart2 className="w-5 h-5 mr-2 text-indigo-600" /> Subject Pass Rates
+                              </h3>
+                              <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                      <BarChart data={mockExamAnalytics.passRates} layout="vertical">
+                                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                          <XAxis type="number" domain={[0, 100]} hide />
+                                          <YAxis dataKey="subject" type="category" width={100} tick={{fontSize: 12, fontWeight: 500}} axisLine={false} tickLine={false} />
+                                          <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} cursor={{fill: '#f8fafc'}} />
+                                          <Bar dataKey="passRate" fill="#4f46e5" radius={[0, 4, 4, 0]} barSize={24} label={{position: 'right', fill: '#64748b', fontSize: 12, formatter: (v: number) => `${v}%`}} />
+                                      </BarChart>
+                                  </ResponsiveContainer>
+                              </div>
+                          </div>
+
+                          {/* Difficulty Distribution Pie Chart */}
+                          <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                              <h3 className="font-bold text-slate-900 mb-6 flex items-center">
+                                  <PieIcon className="w-5 h-5 mr-2 text-indigo-600" /> Question Difficulty
+                              </h3>
+                              <div className="h-72 flex items-center justify-center">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                      <PieChart>
+                                          <Pie
+                                              data={mockExamAnalytics.difficultyDistribution}
+                                              cx="50%"
+                                              cy="50%"
+                                              innerRadius={60}
+                                              outerRadius={90}
+                                              paddingAngle={5}
+                                              dataKey="value"
+                                          >
+                                              {mockExamAnalytics.difficultyDistribution.map((entry, index) => (
+                                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                              ))}
+                                          </Pie>
+                                          <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                          <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                                      </PieChart>
+                                  </ResponsiveContainer>
+                              </div>
+                          </div>
+
+                          {/* Score Distribution Area Chart */}
+                          <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm lg:col-span-2">
+                              <h3 className="font-bold text-slate-900 mb-6 flex items-center">
+                                  <Activity className="w-5 h-5 mr-2 text-indigo-600" /> Student Score Distribution
+                              </h3>
+                              <div className="h-72">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                      <AreaChart data={mockExamAnalytics.scoreDistribution}>
+                                          <defs>
+                                              <linearGradient id="colorStudents" x1="0" y1="0" x2="0" y2="1">
+                                                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                              </linearGradient>
+                                          </defs>
+                                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                          <XAxis dataKey="range" axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                                          <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                                          <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                          <Area type="monotone" dataKey="students" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorStudents)" />
+                                      </AreaChart>
+                                  </ResponsiveContainer>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3">
+                      <button onClick={() => setShowAnalyticsModal(false)} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-50 rounded-xl transition-colors">Close Dashboard</button>
+                      <button className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors flex items-center">
+                          <Download className="w-4 h-4 mr-2" /> Export Analytics
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );

@@ -39,6 +39,16 @@ const PERMISSION_CATEGORIES = {
     'Finance': ['Make Payments', 'View Earnings']
 };
 
+// Explicitly define selectable roles to ensure order and completeness
+const SELECTABLE_ROLES = [
+  UserRole.ADMIN,
+  UserRole.SCHOOL_ADMIN,
+  UserRole.TEACHER,
+  UserRole.TUTOR,
+  UserRole.STUDENT,
+  UserRole.PARENT
+];
+
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,13 +154,13 @@ export const UserManagement: React.FC = () => {
       
       let matchesTab = true;
       if (activeTab === 'active') matchesTab = user.active === true;
-      if (activeTab === 'pending') matchesTab = user.active === false;
+      if (activeTab === 'pending') matchesTab = user.verificationStatus === 'pending';
 
       return matchesSearch && matchesRole && matchesTab;
     });
   }, [users, searchQuery, filterRole, activeTab]);
 
-  const pendingCount = users.filter(u => !u.active).length;
+  const pendingCount = users.filter(u => u.verificationStatus === 'pending').length;
 
   // --- SELECTION LOGIC ---
   const toggleSelection = (id: string) => {
@@ -375,7 +385,7 @@ export const UserManagement: React.FC = () => {
                 placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white transition-colors text-slate-900"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 focus:bg-white transition-colors text-slate-900 placeholder-slate-500"
             />
             </div>
             <div className="relative">
@@ -711,7 +721,7 @@ export const UserManagement: React.FC = () => {
                   <input 
                     value={formData.first_name || ''}
                     onChange={e => setFormData({...formData, first_name: e.target.value})}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-500"
                   />
                 </div>
                 <div>
@@ -719,7 +729,7 @@ export const UserManagement: React.FC = () => {
                   <input 
                     value={formData.last_name || ''}
                     onChange={e => setFormData({...formData, last_name: e.target.value})}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-500"
                   />
                 </div>
               </div>
@@ -730,7 +740,7 @@ export const UserManagement: React.FC = () => {
                   type="email"
                   value={formData.email || ''}
                   onChange={e => setFormData({...formData, email: e.target.value})}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full p-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-500"
                 />
               </div>
 
@@ -761,7 +771,7 @@ export const UserManagement: React.FC = () => {
               <div className="border-t border-slate-100 pt-4">
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Assign Roles</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                  {Object.values(UserRole).map((role) => {
+                  {SELECTABLE_ROLES.map((role) => {
                     const isSelected = formData.roles?.includes(role);
                     return (
                         <div 

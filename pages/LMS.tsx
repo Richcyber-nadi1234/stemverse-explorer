@@ -1,101 +1,30 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, PlayCircle, Clock, BookOpen, Star, X, Users, Globe, GraduationCap, ChevronRight, CheckCircle2, LayoutGrid, List, ArrowRight } from 'lucide-react';
 import { Course } from '../types';
-
-const mockCourses: Course[] = [
-  {
-    id: 'c_python_kids',
-    title: 'Python for Kids: Master Coding',
-    description: 'A fun, interactive journey into Python! Create your first game, build a calculator, and learn how computers think. Perfect for ages 10-14.',
-    thumbnail: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&q=80&w=1000',
-    instructor: 'CodeMaster 3000',
-    progress: 0,
-    total_lessons: 15,
-    completed_lessons: 0,
-    category: 'Python',
-    tags: ['Coding', 'Beginner', 'Games'],
-    students_enrolled: 2100,
-    rating: 4.9
-  },
-  {
-    id: 'c_robotics_fund',
-    title: 'Robotics Fundamentals: Build & Code',
-    description: 'Discover how robots see, move, and think! Learn about sensors, motors, and simple circuits using virtual simulators and fun videos. Ages 8-14.',
-    thumbnail: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1000',
-    instructor: 'Dr. K. Osei',
-    progress: 0,
-    total_lessons: 12,
-    completed_lessons: 0,
-    category: 'Robotics',
-    tags: ['Engineering', 'Arduino', 'Circuits'],
-    students_enrolled: 1240,
-    rating: 4.8
-  },
-  {
-    id: 'c_scratch_magic',
-    title: 'Scratch Coding Magic',
-    description: 'Drag, drop, and create! Build your own cartoons and interactive stories without typing a single line of code. Best for ages 6-10.',
-    thumbnail: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&q=80&w=1000',
-    instructor: 'Sarah Mensah',
-    progress: 0,
-    total_lessons: 10,
-    completed_lessons: 0,
-    category: 'Scratch',
-    tags: ['Animation', 'Storytelling', 'Fun'],
-    students_enrolled: 850,
-    rating: 5.0
-  },
-  {
-    id: 'c4',
-    title: 'STEM Engineering Challenge',
-    description: 'Hands-on structural engineering. Build bridges, towers, and simple machines with household items.',
-    thumbnail: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&q=80&w=1000',
-    instructor: 'Mr. A. Boateng',
-    progress: 90,
-    total_lessons: 8,
-    completed_lessons: 7,
-    category: 'STEM',
-    tags: ['Physics', 'Engineering', 'Mechanics'],
-    students_enrolled: 560,
-    rating: 4.6
-  },
-  {
-    id: 'c5',
-    title: 'Advanced AI & Machine Learning',
-    description: 'For older students ready to dive deep. Learn how AI generates images and understands text.',
-    thumbnail: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=1000',
-    instructor: 'Newton AI',
-    progress: 0,
-    total_lessons: 20,
-    completed_lessons: 0,
-    category: 'Robotics',
-    tags: ['AI', 'Python', 'Future Tech'],
-    students_enrolled: 300,
-    rating: 4.7
-  }
-];
+import { CourseContext } from '../App';
+import { CourseCard } from '../components/CourseCard';
 
 export const LMS: React.FC = () => {
   const navigate = useNavigate();
   const catalogRef = useRef<HTMLDivElement>(null);
   const myLearningRef = useRef<HTMLElement>(null);
+  const { courses, enrolledCourseIds, enrollCourse } = useContext(CourseContext);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // State for Enrollment
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]); 
   const [selectedCourseForModal, setSelectedCourseForModal] = useState<Course | null>(null);
 
-  const categories = ['All', 'Robotics', 'Python', 'Scratch', 'STEM'];
+  const categories = ['All', 'Robotics', 'Python', 'Scratch', 'STEM', 'Science'];
 
   // --- Filter Logic ---
-  const enrolledCourses = mockCourses.filter(c => enrolledCourseIds.includes(c.id));
+  // Using global state for enrolled courses
+  const enrolledCourses = courses.filter(c => enrolledCourseIds.includes(c.id));
   
-  const catalogCourses = mockCourses.filter(course => {
+  const catalogCourses = courses.filter(course => {
     // If searching, show everything matching. If not searching, hide enrolled courses from catalog view to reduce clutter
     if (enrolledCourseIds.includes(course.id) && !searchQuery) return false;
 
@@ -116,7 +45,7 @@ export const LMS: React.FC = () => {
 
   const handleEnroll = () => {
     if (selectedCourseForModal) {
-      setEnrolledCourseIds([...enrolledCourseIds, selectedCourseForModal.id]);
+      enrollCourse(selectedCourseForModal.id);
       // Simulating API delay
       setTimeout(() => {
         navigate(`/lms/course/${selectedCourseForModal.id}`);
@@ -180,39 +109,12 @@ export const LMS: React.FC = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {enrolledCourses.map(course => (
-                      <div 
-                          key={course.id} 
-                          onClick={() => handleCourseClick(course)} 
-                          className="bg-white rounded-2xl border border-indigo-100 shadow-sm cursor-pointer hover:shadow-xl hover:border-indigo-300 transition-all group overflow-hidden flex flex-col h-full transform hover:-translate-y-1"
-                      >
-                          <div className="relative h-40 shrink-0 overflow-hidden">
-                              <img src={course.thumbnail} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 to-transparent"></div>
-                              <div className="absolute bottom-3 left-4 right-4">
-                                  <p className="text-[10px] font-bold uppercase tracking-wider opacity-90 mb-1 text-indigo-200">{course.category}</p>
-                                  <h3 className="font-bold text-white text-lg leading-tight line-clamp-1">{course.title}</h3>
-                              </div>
-                              <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md border border-white/30 p-1.5 rounded-lg text-white">
-                                  <PlayCircle className="w-5 h-5" />
-                              </div>
-                          </div>
-                          <div className="p-5 flex-1 flex flex-col justify-between">
-                              <div>
-                                  <div className="flex justify-between text-xs text-slate-500 mb-2 font-bold uppercase tracking-wide">
-                                      <span>Progress</span>
-                                      <span className="text-indigo-600">{course.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-slate-100 rounded-full h-2 mb-4 overflow-hidden">
-                                      <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000 relative" style={{width: `${course.progress}%`}}>
-                                          <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/30"></div>
-                                      </div>
-                                  </div>
-                              </div>
-                              <button className="w-full py-2.5 bg-slate-900 text-white font-bold rounded-xl group-hover:bg-indigo-600 transition-colors flex items-center justify-center text-sm">
-                                  Continue Learning <ChevronRight className="w-4 h-4 ml-1" />
-                              </button>
-                          </div>
-                      </div>
+                      <CourseCard 
+                        key={course.id}
+                        course={course}
+                        isEnrolled={true}
+                        onClick={() => handleCourseClick(course)}
+                      />
                   ))}
               </div>
           </section>
@@ -284,60 +186,12 @@ export const LMS: React.FC = () => {
         ) : (
             <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
                 {catalogCourses.map(course => (
-                    <div 
-                        key={course.id} 
-                        onClick={() => handleCourseClick(course)}
-                        className={`group bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all duration-300 cursor-pointer relative flex ${viewMode === 'list' ? 'flex-row h-48' : 'flex-col h-full'}`}
-                    >
-                        {/* Thumbnail */}
-                        <div className={`relative overflow-hidden bg-slate-100 ${viewMode === 'list' ? 'w-64' : 'aspect-video'}`}>
-                            <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                            
-                            {/* Category Badge */}
-                            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-900 shadow-sm uppercase tracking-wide">
-                                {course.category}
-                            </div>
-                            
-                            {/* Enrollment Overlay if search found enrolled course */}
-                            {enrolledCourseIds.includes(course.id) && (
-                                <div className="absolute inset-0 bg-indigo-900/80 flex items-center justify-center backdrop-blur-[2px]">
-                                    <span className="bg-white text-indigo-900 px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center">
-                                        <CheckCircle2 className="w-4 h-4 mr-2" /> Enrolled
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="p-5 flex flex-col flex-1">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-lg font-bold text-slate-900 line-clamp-2 group-hover:text-indigo-600 transition-colors leading-tight">
-                                    {course.title}
-                                </h3>
-                            </div>
-                            
-                            <p className="text-slate-500 text-sm line-clamp-2 mb-4 flex-1">{course.description}</p>
-                            
-                            {/* Instructor & Rating */}
-                            <div className="flex items-center justify-between text-xs text-slate-500 pt-4 border-t border-slate-50 mt-auto">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-bold text-indigo-600 border border-indigo-100">
-                                        {course.instructor.charAt(0)}
-                                    </div>
-                                    <span className="font-medium text-slate-700 truncate max-w-[100px]">{course.instructor}</span>
-                                </div>
-                                
-                                <div className="flex gap-3">
-                                    <div className="flex items-center" title="Students Enrolled">
-                                        <Users className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                                        <span className="font-medium">{course.students_enrolled}</span>
-                                    </div>
-                                    <div className="flex items-center text-amber-500 font-bold">
-                                        <Star className="w-3.5 h-3.5 fill-current mr-1" /> {course.rating}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <CourseCard 
+                      key={course.id}
+                      course={course}
+                      isEnrolled={enrolledCourseIds.includes(course.id)}
+                      onClick={() => handleCourseClick(course)}
+                    />
                 ))}
             </div>
         )}

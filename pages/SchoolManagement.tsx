@@ -420,7 +420,7 @@ export const SchoolManagement: React.FC = () => {
           <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="relative w-full sm:w-64">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Search students..." className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 placeholder-slate-400" />
+                <input type="text" placeholder="Search students..." className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 placeholder-slate-500" />
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -626,7 +626,7 @@ export const SchoolManagement: React.FC = () => {
                         <input 
                         value={formData.firstName}
                         onChange={e => setFormData({...formData, firstName: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900" 
+                        className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 placeholder-slate-500" 
                         />
                     </div>
                     <div>
@@ -634,7 +634,7 @@ export const SchoolManagement: React.FC = () => {
                         <input 
                         value={formData.lastName}
                         onChange={e => setFormData({...formData, lastName: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900" 
+                        className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 placeholder-slate-500" 
                         />
                     </div>
                   </div>
@@ -646,7 +646,7 @@ export const SchoolManagement: React.FC = () => {
                     <input 
                       value={formData.id}
                       onChange={e => setFormData({...formData, id: e.target.value})}
-                      className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900" 
+                      className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500" 
                       disabled={!!editingId}
                     />
                   </div>
@@ -660,7 +660,7 @@ export const SchoolManagement: React.FC = () => {
                         <input 
                         value={formData.email}
                         onChange={e => setFormData({...formData, email: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg pl-10 p-2 bg-white text-slate-900" 
+                        className="w-full border border-slate-300 rounded-lg pl-10 p-2 bg-white text-slate-900 placeholder-slate-500" 
                         placeholder="user@school.edu"
                         />
                     </div>
@@ -686,7 +686,7 @@ export const SchoolManagement: React.FC = () => {
                     <input 
                         value={formData.subjects}
                         onChange={e => setFormData({...formData, subjects: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900" 
+                        className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500" 
                         placeholder="Math, Physics"
                     />
                   </div>
@@ -700,7 +700,7 @@ export const SchoolManagement: React.FC = () => {
                         <input 
                             value={formData.className}
                             onChange={e => setFormData({...formData, className: e.target.value})}
-                            className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900" 
+                            className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500" 
                             placeholder="Class 5A"
                         />
                     </div>
@@ -711,7 +711,7 @@ export const SchoolManagement: React.FC = () => {
                                 type="number"
                                 value={formData.gradeLevel}
                                 onChange={e => setFormData({...formData, gradeLevel: parseInt(e.target.value)})}
-                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900" 
+                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500" 
                             />
                         </div>
                         <div>
@@ -739,7 +739,7 @@ export const SchoolManagement: React.FC = () => {
                         <input 
                             value={formData.subject}
                             onChange={e => setFormData({...formData, subject: e.target.value})}
-                            className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900" 
+                            className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500" 
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -758,7 +758,7 @@ export const SchoolManagement: React.FC = () => {
                             <input 
                                 value={formData.room}
                                 onChange={e => setFormData({...formData, room: e.target.value})}
-                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900" 
+                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500" 
                                 placeholder="Room 101"
                             />
                         </div>
@@ -770,7 +770,7 @@ export const SchoolManagement: React.FC = () => {
                                 type="time"
                                 value={formData.startTime}
                                 onChange={e => setFormData({...formData, startTime: e.target.value})}
-                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900"
+                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500"
                             />
                         </div>
                         <div>
@@ -779,7 +779,7 @@ export const SchoolManagement: React.FC = () => {
                                 type="time"
                                 value={formData.endTime}
                                 onChange={e => setFormData({...formData, endTime: e.target.value})}
-                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900"
+                                className="w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-900 placeholder-slate-500"
                             />
                         </div>
                     </div>

@@ -128,7 +128,7 @@ export interface KPIMetric {
   trend: 'up' | 'down' | 'neutral';
 }
 
-export type QuestionType = 'MCQ' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY' | 'CODE';
+export type QuestionType = 'MCQ' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY' | 'CODE' | 'MULTIPLE_RESPONSE' | 'FILL_IN_THE_BLANK' | 'ORDERING';
 
 export interface Question {
   id: string;
@@ -138,8 +138,8 @@ export interface Question {
   grade_level: number;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   marks: number;
-  options?: string[]; // For MCQ
-  correct_answer?: string;
+  options?: string[]; // For MCQ, MULTIPLE_RESPONSE, ORDERING
+  correct_answer?: string; // For MULTIPLE_RESPONSE/ORDERING this is a JSON string
   tags: string[];
 }
 
@@ -162,6 +162,41 @@ export interface NotificationPreferences {
 }
 
 // LMS Types
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+}
+
+export interface Module {
+  id: string;
+  title: string;
+  content?: string;
+  contentType?: 'text' | 'video' | 'quiz' | 'assignment' | 'live_class';
+  
+  // Video Content Fields
+  videoUrl?: string;
+  isAiGenerated?: boolean;
+  
+  videoConfig?: {
+    aiPrompt?: string;
+  };
+
+  quizData?: QuizQuestion[];
+  assignmentConfig?: {
+    dueDate: string;
+    maxScore: number;
+    instructions?: string;
+  };
+  liveConfig?: {
+    startTime: string;
+    meetingLink: string;
+    platform: 'zoom' | 'meet' | 'internal';
+  };
+}
+
 export interface Course {
   id: string;
   title: string;
@@ -175,8 +210,10 @@ export interface Course {
   tags: string[];
   students_enrolled?: number;
   rating?: number;
-  status?: 'draft' | 'published' | 'archived';
+  status?: 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
+  rejectionReason?: string;
   contentTypeFocus?: 'video' | 'project' | 'quiz';
+  modules?: Module[];
 }
 
 export interface AssignmentConfig {
@@ -262,6 +299,7 @@ export interface ProjectTask {
   student_name: string;
   status: 'todo' | 'in_progress' | 'review' | 'done';
   priority: 'low' | 'medium' | 'high';
+  due_date?: string; // ISO Date String
 }
 
 export interface RoadmapItem {

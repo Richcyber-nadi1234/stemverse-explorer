@@ -1,7 +1,21 @@
 
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000';
+// Attempt to determine API URL from environment or default to localhost
+// In Vite, import.meta.env is used.
+let API_URL = 'http://localhost:3000';
+
+try {
+  // @ts-ignore
+  if (import.meta.env && import.meta.env.VITE_API_URL) {
+    // @ts-ignore
+    API_URL = import.meta.env.VITE_API_URL;
+  } else if (process.env.REACT_APP_API_URL) {
+    API_URL = process.env.REACT_APP_API_URL;
+  }
+} catch (e) {
+  // Silent fallback
+}
 
 const api = axios.create({
   baseURL: API_URL,
@@ -27,10 +41,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('stemverse_token');
-      localStorage.removeItem('stemverse_user');
-      window.location.href = '/#/login'; // Hash router redirect
+      // Only redirect if not on a public route to prevent loops
+      const currentHash = window.location.hash;
+      if (!currentHash.includes('/login') && !currentHash.includes('/register') && currentHash !== '#/') {
+          localStorage.removeItem('stemverse_token');
+          localStorage.removeItem('stemverse_user');
+          window.location.href = '/#/login'; 
+      }
     }
     return Promise.reject(error);
   }

@@ -29,14 +29,31 @@ export class AuthService {
   }
 
   async register(data: any) {
-    // Basic mapping - in production use DTOs
+    // Determine verification status based on role
+    let verificationStatus = 'unverified';
+    let isActive = false;
+
+    if (data.roles && data.roles.includes('student')) {
+       // Students might need parent email verification, simpler for now
+       verificationStatus = 'pending'; 
+    } else if (data.roles && (data.roles.includes('teacher') || data.roles.includes('school_admin'))) {
+       verificationStatus = 'pending';
+    }
+
+    // Check if user exists
+    const existing = await this.usersService.findOne(data.email);
+    if (existing) {
+        throw new Error('User already exists');
+    }
+
     const user = await this.usersService.create({
-        email: data.email,
-        passwordHash: data.password, // UsersService will hash this
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roles: data.roles || ['STUDENT'],
+        ...data,
+        active: isActive,
+        verificationStatus: verificationStatus
     });
-    return { message: 'User registered successfully', userId: user.id };
+    
+    // Return the user object (without password)
+    const { passwordHash, ...result } = user;
+    return { message: 'User registered successfully', user: result };
   }
 }

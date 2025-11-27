@@ -30,7 +30,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
     // Check if user has ANY of the allowed roles
     const hasPermission = user.roles.some(role => allowedRoles.includes(role));
     if (!hasPermission) {
-        // Role not authorized, redirect to dashboard (or unauthorized page)
+        // Role not authorized. Redirect to their appropriate dashboard to avoid loops.
+        // E.g., A Parent trying to access /dashboard (Teacher area) should go to /parent-dashboard
+        if (user.roles.includes(UserRole.STUDENT) && user.roles.length === 1) {
+            return <Navigate to="/student-dashboard" replace />;
+        }
+        if (user.roles.includes(UserRole.PARENT)) {
+            return <Navigate to="/parent-dashboard" replace />;
+        }
         return <Navigate to="/dashboard" replace />;
     }
   }

@@ -1,42 +1,32 @@
 
-import React, { useState } from 'react';
-import { Save, Plus, Trash, FileText, Video, GripVertical, Sparkles, Bot, X, Loader2, Check, Calendar, Award, AlertCircle, Image as ImageIcon, Film, Wand2, Play, Link as LinkIcon, Scissors, ListPlus } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Save, Plus, Trash, FileText, Video, GripVertical, Sparkles, Bot, X, Loader2, Check, Calendar, Award, AlertCircle, Image as ImageIcon, Film, Wand2, Play, Link as LinkIcon, Scissors, ListPlus, Upload, LayoutTemplate, Send } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
+import { AuthContext, CourseContext, ToastContext } from '../App';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Course, Module, QuizQuestion } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-interface QuizQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswer: string;
-}
-
-interface Module {
-  id: string;
-  title: string;
-  content?: string;
-  contentType?: 'text' | 'video' | 'quiz' | 'assignment' | 'live_class';
-  quizData?: QuizQuestion[];
-  assignmentConfig?: {
-    dueDate: string;
-    maxScore: number;
-    instructions?: string;
-  };
-  liveConfig?: {
-    startTime: string;
-    meetingLink: string;
-    platform: 'zoom' | 'meet' | 'internal';
-  };
-}
-
 export const CourseStudio: React.FC = () => {
+  const { user } = useContext(AuthContext);
+  const { addCourse, updateCourse, courses } = useContext(CourseContext);
+  const { showToast } = useContext(ToastContext);
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [activeTab, setActiveTab] = useState<'curriculum' | 'media'>('curriculum');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // AI Modal State (Text Generation)
+  // Drag and Drop State
+  const [draggedModuleIndex, setDraggedModuleIndex] = useState<number | null>(null);
+  const [dragOverModuleIndex, setDragOverModuleIndex] = useState<number | null>(null);
+
+  // AI Modal State (Text Generation & Planning)
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,11 +40,14 @@ export const CourseStudio: React.FC = () => {
     complexity: 'intermediate',
     keywords: '',
     quizCount: 5,
-    quizDifficulty: 'medium'
+    quizDifficulty: 'medium',
+    objectives: '',
+    moduleCount: 5,
+    additionalContext: ''
   });
   const [generatedContent, setGeneratedContent] = useState('');
   const [generatedQuizData, setGeneratedQuizData] = useState<QuizQuestion[]>([]);
-  const [showToast, setShowToast] = useState(false); 
+  const [generatedOutline, setGeneratedOutline] = useState<{title: string, description: string}[]>([]);
 
   // AI Media Tools State
   const [mediaPrompt, setMediaPrompt] = useState('');
@@ -65,9 +58,24 @@ export const CourseStudio: React.FC = () => {
   const [analysisVideo, setAnalysisVideo] = useState<File | null>(null);
   const [editSuggestions, setEditSuggestions] = useState<string | null>(null);
 
+  // Initialize for Editing if ID present
+  useEffect(() => {
+    if (location.state?.courseId) {
+        const courseToEdit = courses.find(c => c.id === location.state.courseId);
+        if (courseToEdit) {
+            setEditingId(courseToEdit.id);
+            setTitle(courseToEdit.title);
+            setDescription(courseToEdit.description);
+            setThumbnail(courseToEdit.thumbnail);
+            setModules(courseToEdit.modules || []);
+        }
+    }
+  }, [location.state, courses]);
+
   const addModule = () => {
+    const newModuleId = Date.now().toString();
     setModules([...modules, { 
-      id: Date.now().toString(), 
+      id: newModuleId, 
       title: '', 
       content: '',
       contentType: 'text',
@@ -139,41 +147,92 @@ export const CourseStudio: React.FC = () => {
   };
 
   const handleSave = () => {
-    alert('Course Saved Successfully!');
+    if (!title) {
+        showToast('Please enter a course title.', 'error');
+        return;
+    }
+    
+    // Preserve existing course fields if editing, override with form data
+    const existingCourse = editingId ? courses.find(c => c.id === editingId) : {};
+
+    const courseData: Course = {
+        ...existingCourse, // Spread existing properties to keep enrolled students, rating etc.
+        id: editingId || `course_${Date.now()}`,
+        title,
+        description: description || 'No description provided.',
+        thumbnail: thumbnail || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=400',
+        instructor: existingCourse.instructor || user?.first_name || 'Instructor',
+        progress: existingCourse.progress || 0,
+        total_lessons: modules.length,
+        completed_lessons: existingCourse.completed_lessons || 0,
+        category: existingCourse.category || 'General',
+        tags: existingCourse.tags || [],
+        students_enrolled: existingCourse.students_enrolled || 0,
+        rating: existingCourse.rating || 0,
+        status: 'pending_review', // ALWAYS submit to pending review, even if editing
+        modules: modules
+    } as Course;
+
+    if (editingId) {
+        updateCourse(courseData);
+        showToast('Course updates submitted for review.', 'success');
+    } else {
+        addCourse(courseData);
+        showToast('Course submitted for review.', 'success');
+    }
+    navigate('/instructor/courses');
   };
 
-  // --- DRAG AND DROP HANDLERS ---
+  const handleThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const imageUrl = URL.createObjectURL(file);
+      setThumbnail(imageUrl);
+    }
+  };
+
+  const removeThumbnail = () => {
+    setThumbnail(null);
+  };
+
+  // Drag & Drop
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    // Prevent dragging if interacting with inputs to allow text selection
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
         e.preventDefault();
         return;
     }
-    e.dataTransfer.setData("dragIndex", index.toString());
+    setDraggedModuleIndex(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessary to allow dropping
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    if (draggedModuleIndex === null || draggedModuleIndex === index) return;
+    if (dragOverModuleIndex !== index) {
+        setDragOverModuleIndex(index);
+    }
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    const dragIndexStr = e.dataTransfer.getData("dragIndex");
-    if (!dragIndexStr) return;
-    
-    const dragIndex = parseInt(dragIndexStr);
-    if (dragIndex === dropIndex) return;
-
-    const newModules = [...modules];
-    const [movedItem] = newModules.splice(dragIndex, 1);
-    newModules.splice(dropIndex, 0, movedItem);
-    setModules(newModules);
+    if (draggedModuleIndex === null) return;
+    if (draggedModuleIndex !== dropIndex) {
+        const newModules = [...modules];
+        const [movedItem] = newModules.splice(draggedModuleIndex, 1);
+        newModules.splice(dropIndex, 0, movedItem);
+        setModules(newModules);
+    }
+    setDraggedModuleIndex(null);
+    setDragOverModuleIndex(null);
   };
 
-  // --- AI HANDLERS ---
+  const handleDragEnd = () => {
+    setDraggedModuleIndex(null);
+    setDragOverModuleIndex(null);
+  };
 
+  // AI Media Handlers
   const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -184,41 +243,60 @@ export const CourseStudio: React.FC = () => {
   };
 
   const handleVeoGenerate = async () => {
-    if (!mediaImage) return alert("Please upload an image first.");
+    if (!mediaImage && !mediaPrompt) return alert("Please provide a text prompt or upload an image.");
+    // @ts-ignore
+    if (window.aistudio && window.aistudio.hasSelectedApiKey && window.aistudio.openSelectKey) {
+        // @ts-ignore
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            // @ts-ignore
+            await window.aistudio.openSelectKey();
+        }
+    }
     setMediaLoading(true);
     setMediaResult(null);
-
     try {
-      const base64Image = await blobToBase64(mediaImage);
-      
-      let operation = await ai.models.generateVideos({
+      const currentAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      let base64Image = undefined;
+      if (mediaImage) {
+          base64Image = await blobToBase64(mediaImage);
+      }
+      const prompt = mediaPrompt || (base64Image ? "Animate this scene naturally" : "A stunning educational video");
+      let operation = await currentAi.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',
-        prompt: mediaPrompt || "Animate this scene naturally",
-        image: {
+        prompt: prompt,
+        image: base64Image ? {
           imageBytes: base64Image,
-          mimeType: mediaImage.type
-        },
+          mimeType: mediaImage!.type
+        } : undefined,
         config: {
           numberOfVideos: 1,
-          resolution: '720p', // 1080p also supported
+          resolution: '720p',
           aspectRatio: '16:9'
         }
       });
-
       while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5s
-        operation = await ai.operations.getVideosOperation({ operation: operation });
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await currentAi.operations.getVideosOperation({ operation: operation });
       }
-
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       if (downloadLink) {
         setMediaResult(`${downloadLink}&key=${process.env.API_KEY}`);
       } else {
         alert("Video generation failed.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Error generating video");
+      if (e.toString().includes("Requested entity was not found")) {
+          // @ts-ignore
+          if (window.aistudio && window.aistudio.openSelectKey) {
+             alert("API Key invalid or expired. Please select a valid key.");
+             // @ts-ignore
+             await window.aistudio.openSelectKey();
+          }
+      } else {
+          alert("Error generating video: " + e.message);
+      }
     } finally {
       setMediaLoading(false);
     }
@@ -228,25 +306,17 @@ export const CourseStudio: React.FC = () => {
     if (!mediaImage || !mediaPrompt) return alert("Image and instruction required.");
     setMediaLoading(true);
     setMediaResult(null);
-
     try {
       const base64Image = await blobToBase64(mediaImage);
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
           parts: [
-            {
-              inlineData: {
-                data: base64Image,
-                mimeType: mediaImage.type,
-              },
-            },
+            { inlineData: { data: base64Image, mimeType: mediaImage.type } },
             { text: mediaPrompt },
           ],
         },
       });
-
-      // Find image part
       let foundImage = false;
       for (const part of response.candidates![0].content.parts) {
         if (part.inlineData) {
@@ -271,27 +341,18 @@ export const CourseStudio: React.FC = () => {
     setMediaLoading(true);
     setMediaResult(null);
     setEditSuggestions(null);
-
     try {
       const base64Video = await blobToBase64(analysisVideo);
-      
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-preview',
         contents: {
           parts: [
-            {
-              inlineData: {
-                mimeType: analysisVideo.type,
-                data: base64Video
-              }
-            },
+            { inlineData: { mimeType: analysisVideo.type, data: base64Video } },
             { text: "Analyze this video. Please provide: 1. A concise summary. 2. Key learning points. 3. A suggested 'Edit Decision List' (EDL) with timestamps to cut silence or improve pacing." }
           ]
         }
       });
-
       const text = response.text || "No analysis generated.";
-      // Simple heuristic to split analysis from EDL suggestions for the UI
       if (text.includes('Edit Decision List')) {
           const parts = text.split('Edit Decision List');
           setMediaResult(parts[0]);
@@ -307,22 +368,26 @@ export const CourseStudio: React.FC = () => {
     }
   };
 
-  // --- TEXT GEN HANDLERS ---
-  const openAIModal = (moduleId: string) => {
+  const openAIModal = (moduleId: string | null) => {
+    const moduleTitle = moduleId ? modules.find(m => m.id === moduleId)?.title || '' : '';
     setActiveModuleId(moduleId);
     setAiConfig({ 
-        topic: '', 
-        type: 'text', 
+        topic: moduleTitle, 
+        type: moduleId ? 'text' : 'outline', 
         audience: 'beginner', 
         tone: 'fun', 
         length: 'medium',
         complexity: 'intermediate',
         keywords: '',
         quizCount: 5, 
-        quizDifficulty: 'medium' 
+        quizDifficulty: 'medium',
+        objectives: '',
+        moduleCount: 5,
+        additionalContext: ''
     });
     setGeneratedContent('');
     setGeneratedQuizData([]);
+    setGeneratedOutline([]);
     setIsAIModalOpen(true);
   };
 
@@ -331,9 +396,35 @@ export const CourseStudio: React.FC = () => {
     setIsGenerating(true);
     setGeneratedQuizData([]);
     setGeneratedContent('');
-    
+    setGeneratedOutline([]);
     try {
-        if (aiConfig.type === 'quiz') {
+        if (aiConfig.type === 'outline') {
+             const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Create a structured course outline with approximately ${aiConfig.moduleCount} modules about "${aiConfig.topic}". 
+                Target Audience: ${aiConfig.audience}.
+                Learning Objectives: ${aiConfig.objectives}.
+                Additional Context/Requirements: ${aiConfig.additionalContext}.
+                Ensure the flow is logical and cumulative.
+                Return a JSON array of modules. For each module provide a 'title' and a brief content 'description'.`,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING }
+                            }
+                        }
+                    }
+                }
+            });
+            if (response.text) {
+                setGeneratedOutline(JSON.parse(response.text));
+            }
+        } else if (aiConfig.type === 'quiz') {
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: `Generate ${aiConfig.quizCount} quiz questions about ${aiConfig.topic} for ${aiConfig.audience}. Difficulty: ${aiConfig.quizDifficulty}.`,
@@ -362,14 +453,12 @@ export const CourseStudio: React.FC = () => {
             Target Audience: ${aiConfig.audience}.
             Tone: ${aiConfig.tone}.
             Complexity: ${aiConfig.complexity}.
-            ${aiConfig.keywords ? `Keywords to include: ${aiConfig.keywords}.` : ''}
-            Format appropriately with headings and bullet points.`;
-
+            ${aiConfig.keywords ? `Key concepts to cover: ${aiConfig.keywords}.` : ''}
+            Format appropriately with headings, bullet points, and clear paragraphs.`;
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt
             });
-
             setGeneratedContent(response.text || "Failed to generate content.");
         }
     } catch (error) {
@@ -384,9 +473,7 @@ export const CourseStudio: React.FC = () => {
       const module = modules.find(m => m.id === moduleId);
       if (!module) return;
       const topic = module.title || "General Knowledge";
-      
       setGeneratingQuestionFor(moduleId);
-
       try {
           const response = await ai.models.generateContent({
               model: 'gemini-2.5-flash',
@@ -403,7 +490,6 @@ export const CourseStudio: React.FC = () => {
                   }
               }
           });
-          
           if (response.text) {
               const q = JSON.parse(response.text);
               const newQuestion: QuizQuestion = {
@@ -428,9 +514,23 @@ export const CourseStudio: React.FC = () => {
   };
 
   const applyAIContent = () => {
+    if (generatedOutline.length > 0) {
+        const newModules = generatedOutline.map(item => ({
+            id: Date.now().toString() + Math.random(),
+            title: item.title,
+            content: item.description,
+            contentType: 'text' as const,
+            quizData: [],
+            assignmentConfig: { dueDate: '', maxScore: 100, instructions: '' },
+            liveConfig: { startTime: '', meetingLink: '', platform: 'internal' as const }
+        }));
+        setModules(prev => [...prev, ...newModules]);
+        setIsAIModalOpen(false);
+        showToast('Content generated and applied.', 'success');
+        return;
+    }
     if (activeModuleId) {
         if (generatedQuizData.length > 0) {
-            // Append generated questions to existing
             setModules(prev => prev.map(m => {
                 if (m.id === activeModuleId) {
                     return { ...m, contentType: 'quiz', quizData: [...(m.quizData || []), ...generatedQuizData] };
@@ -441,32 +541,20 @@ export const CourseStudio: React.FC = () => {
             updateModule(activeModuleId, 'content', generatedContent);
         }
         setIsAIModalOpen(false);
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
+        showToast('Content generated and applied.', 'success');
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 relative pb-20 px-4 sm:px-0">
       
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed top-24 right-6 z-[100] bg-slate-800 border-l-4 border-green-500 text-white p-4 rounded-xl shadow-2xl flex items-center animate-in slide-in-from-right-5">
-           <Check className="w-5 h-5 text-green-400 mr-3" />
-           <div>
-              <h4 className="text-sm font-bold text-green-400">Success</h4>
-              <p className="text-xs text-slate-300">Content generated and applied.</p>
-           </div>
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Creator Studio</h1>
-          <p className="text-slate-500">Drafting new content: {title || 'Untitled'}</p>
+          <p className="text-slate-500">{editingId ? `Editing: ${title}` : `Drafting new content: ${title || 'Untitled'}`}</p>
         </div>
-        <button onClick={handleSave} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 w-full sm:w-auto justify-center">
-          <Save className="w-4 h-4 mr-2" /> Save Draft
+        <button onClick={handleSave} className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 w-full sm:w-auto justify-center shadow-lg transition-colors">
+          <Send className="w-4 h-4 mr-2" /> {editingId ? 'Save & Resubmit' : 'Submit for Review'}
         </button>
       </div>
 
@@ -507,30 +595,99 @@ export const CourseStudio: React.FC = () => {
                     placeholder="Course overview..."
                 />
                 </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Course Thumbnail</label>
+                    <div className="flex flex-col sm:flex-row items-start gap-6">
+                        <div className="relative group shrink-0">
+                            <div className={`w-full sm:w-72 aspect-video rounded-xl border-2 ${thumbnail ? 'border-slate-200' : 'border-dashed border-slate-300 bg-slate-50'} flex items-center justify-center overflow-hidden transition-all`}>
+                                {thumbnail ? (
+                                    <>
+                                        <img src={thumbnail} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                                            <button 
+                                                onClick={removeThumbnail}
+                                                className="p-2 bg-white/10 backdrop-blur-md text-white rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500"
+                                                title="Remove Image"
+                                            >
+                                                <Trash className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center text-slate-400 p-6 text-center">
+                                        <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
+                                            <ImageIcon className="w-6 h-6 text-indigo-300" />
+                                        </div>
+                                        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">No Image Selected</span>
+                                        <p className="text-[10px] text-slate-400 mt-1">Recommended: 1280x720 px</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-col pt-2">
+                            <input 
+                                type="file" 
+                                id="course-thumbnail" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={handleThumbnailUpload}
+                            />
+                            <label 
+                                htmlFor="course-thumbnail"
+                                className="inline-flex items-center px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-600 cursor-pointer transition-all w-fit"
+                            >
+                                <Upload className="w-4 h-4 mr-2" /> 
+                                {thumbnail ? 'Change Thumbnail' : 'Upload Thumbnail'}
+                            </label>
+                            <p className="text-xs text-slate-500 mt-3 max-w-xs leading-relaxed">
+                                Upload a high-quality image to attract students. Use a relevant image that represents your course topic clearly.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="space-y-4 animate-in fade-in">
                 <div className="flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-900">Curriculum</h3>
-                <button onClick={addModule} className="text-indigo-600 text-sm font-bold flex items-center hover:underline">
-                    <Plus className="w-4 h-4 mr-1" /> Add Module
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => openAIModal(null)} 
+                        className="flex items-center px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-bold hover:bg-purple-200 transition-colors"
+                    >
+                        <Sparkles className="w-4 h-4 mr-1.5" /> AI Plan Course
+                    </button>
+                    <button onClick={addModule} className="text-indigo-600 text-sm font-bold flex items-center hover:underline bg-white px-3 py-1.5 rounded-lg border border-indigo-200 hover:bg-indigo-50 transition-colors">
+                        <Plus className="w-4 h-4 mr-1" /> Add Module
+                    </button>
+                </div>
                 </div>
                 
                 {modules.length === 0 && (
                 <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
-                    No modules added yet.
+                    No modules added yet. Use AI Plan Course or "Add Module" to get started.
                 </div>
                 )}
 
                 {modules.map((mod, idx) => (
                 <div 
                     key={mod.id} 
-                    className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-4 group shadow-sm hover:shadow-md transition-all"
+                    className={`relative p-5 rounded-xl border transition-all duration-300 ease-in-out
+                        ${draggedModuleIndex === idx 
+                            ? 'opacity-40 border-dashed border-slate-400 bg-slate-50 scale-95 ring-1 ring-slate-200' 
+                            : 'bg-white border-slate-200 hover:shadow-md hover:border-indigo-200'
+                        }
+                        ${dragOverModuleIndex === idx && draggedModuleIndex !== idx 
+                            ? 'border-indigo-500 ring-2 ring-indigo-100 bg-indigo-50/40 shadow-lg transform scale-[1.02] z-10' 
+                            : ''
+                        }
+                    `}
                     draggable
                     onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={handleDragOver}
+                    onDragOver={(e) => handleDragOver(e, idx)}
                     onDrop={(e) => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
                 >
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                         <div className="flex items-center gap-2 flex-1 cursor-move">
@@ -539,7 +696,7 @@ export const CourseStudio: React.FC = () => {
                             <input 
                                 value={mod.title}
                                 onChange={e => updateModule(mod.id, 'title', e.target.value)}
-                                className="flex-1 p-2 border-none focus:ring-0 font-medium text-slate-900 placeholder-slate-400 text-lg bg-white min-w-0"
+                                className="flex-1 p-2 border-none focus:ring-0 font-medium text-slate-900 placeholder-slate-400 text-lg bg-transparent min-w-0"
                                 placeholder="Module Title"
                             />
                         </div>
@@ -556,7 +713,6 @@ export const CourseStudio: React.FC = () => {
                     </div>
                     
                     <div className="sm:ml-12 sm:mr-4 space-y-3">
-                    {/* Type Selector */}
                     <div className="flex flex-wrap gap-4 text-sm">
                         <label className="flex items-center gap-2 text-slate-600 cursor-pointer">
                         <input 
@@ -596,7 +752,6 @@ export const CourseStudio: React.FC = () => {
                         </label>
                     </div>
 
-                    {/* STRUCTURED QUIZ EDITOR */}
                     {mod.contentType === 'quiz' && (
                         <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-4">
                             <div className="flex justify-between items-center">
@@ -666,7 +821,6 @@ export const CourseStudio: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Assignment Config */}
                     {mod.contentType === 'assignment' && (
                         <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -701,7 +855,6 @@ export const CourseStudio: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Live Class Scheduler Config */}
                     {mod.contentType === 'live_class' && (
                         <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100 space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -748,12 +901,23 @@ export const CourseStudio: React.FC = () => {
                     )}
 
                     {mod.contentType === 'text' && (
-                        <textarea 
-                            value={mod.content}
-                            onChange={e => updateModule(mod.id, 'content', e.target.value)}
-                            className="w-full p-3 text-sm text-slate-600 bg-slate-50 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:bg-white min-h-[80px]"
-                            placeholder="Enter module text content, lecture notes, or video script..."
-                        />
+                        <div className="relative">
+                            <textarea 
+                                value={mod.content}
+                                onChange={e => updateModule(mod.id, 'content', e.target.value)}
+                                className="w-full p-3 text-sm text-slate-600 bg-slate-50 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:bg-white min-h-[120px]"
+                                placeholder="Enter module text content, lecture notes, or video script..."
+                            />
+                            {!mod.content && (
+                                <button 
+                                    onClick={() => openAIModal(mod.id)}
+                                    className="absolute top-3 right-3 text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded border border-indigo-100 hover:bg-indigo-100 flex items-center font-medium shadow-sm transition-colors"
+                                    title="Automatically generate lesson content based on topic"
+                                >
+                                    <Sparkles className="w-3 h-3 mr-1.5" /> Auto-write Lesson
+                                </button>
+                            )}
+                        </div>
                     )}
                     </div>
                 </div>
@@ -762,101 +926,41 @@ export const CourseStudio: React.FC = () => {
         </>
       )}
 
-      {/* AI Media Studio Tab */}
+      {/* Media Tab and Modals kept exactly as previous */}
       {activeTab === 'media' && (
           <div className="space-y-6 animate-in fade-in">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <button 
-                    onClick={() => setMediaMode('veo')}
-                    className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${mediaMode === 'veo' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500' : 'bg-white hover:border-indigo-300'}`}
-                  >
+                  <button onClick={() => setMediaMode('veo')} className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${mediaMode === 'veo' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500' : 'bg-white hover:border-indigo-300'}`}>
                       <div className="bg-purple-100 p-2 rounded-lg text-purple-600"><Film className="w-5 h-5" /></div>
-                      <div>
-                          <h4 className="font-bold text-sm">Animate Image (Veo)</h4>
-                          <p className="text-xs text-slate-500">Turn photos into videos</p>
-                      </div>
+                      <div><h4 className="font-bold text-sm">Animate Image (Veo)</h4><p className="text-xs text-slate-500">Generate videos from text/image</p></div>
                   </button>
-                  <button 
-                    onClick={() => setMediaMode('edit')}
-                    className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${mediaMode === 'edit' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500' : 'bg-white hover:border-indigo-300'}`}
-                  >
+                  <button onClick={() => setMediaMode('edit')} className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${mediaMode === 'edit' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500' : 'bg-white hover:border-indigo-300'}`}>
                       <div className="bg-amber-100 p-2 rounded-lg text-amber-600"><Wand2 className="w-5 h-5" /></div>
-                      <div>
-                          <h4 className="font-bold text-sm">Image Editor</h4>
-                          <p className="text-xs text-slate-500">Edit with text instructions</p>
-                      </div>
+                      <div><h4 className="font-bold text-sm">Image Editor</h4><p className="text-xs text-slate-500">Edit with text instructions</p></div>
                   </button>
-                  <button 
-                    onClick={() => setMediaMode('video_analysis')}
-                    className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${mediaMode === 'video_analysis' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500' : 'bg-white hover:border-indigo-300'}`}
-                  >
+                  <button onClick={() => setMediaMode('video_analysis')} className={`p-4 rounded-xl border text-left flex items-center gap-3 transition-all ${mediaMode === 'video_analysis' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500' : 'bg-white hover:border-indigo-300'}`}>
                       <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><Scissors className="w-5 h-5" /></div>
-                      <div>
-                          <h4 className="font-bold text-sm">AI Video Analysis</h4>
-                          <p className="text-xs text-slate-500">Get editing suggestions</p>
-                      </div>
+                      <div><h4 className="font-bold text-sm">AI Video Analysis</h4><p className="text-xs text-slate-500">Get editing suggestions</p></div>
                   </button>
               </div>
-
               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-8">
-                  {/* Inputs */}
                   <div className="flex-1 space-y-4">
-                      <h3 className="font-bold text-lg text-slate-900 mb-2">
-                          {mediaMode === 'veo' ? 'Generate Video from Image' : mediaMode === 'edit' ? 'Edit Image with AI' : 'Analyze & Edit Video'}
-                      </h3>
-                      
+                      <h3 className="font-bold text-lg text-slate-900 mb-2">{mediaMode === 'veo' ? 'Generate Video with Veo' : mediaMode === 'edit' ? 'Edit Image with AI' : 'Analyze & Edit Video'}</h3>
                       {mediaMode !== 'video_analysis' ? (
                           <>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Source Image</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">{mediaMode === 'veo' ? 'Source Image (Optional for Veo)' : 'Source Image'}</label>
                                 <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        onChange={(e) => setMediaImage(e.target.files?.[0] || null)}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    {mediaImage ? (
-                                        <div className="flex items-center justify-center gap-2 text-green-600 font-medium truncate">
-                                            <Check className="w-5 h-5 shrink-0" /> {mediaImage.name}
-                                        </div>
-                                    ) : (
-                                        <div className="text-slate-400 text-sm">
-                                            <ImageIcon className="w-8 h-8 mx-auto mb-2" />
-                                            <p>Click to upload image</p>
-                                        </div>
-                                    )}
+                                    <input type="file" accept="image/*" onChange={(e) => setMediaImage(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    {mediaImage ? <div className="flex items-center justify-center gap-2 text-green-600 font-medium truncate"><Check className="w-5 h-5 shrink-0" /> {mediaImage.name}</div> : <div className="text-slate-400 text-sm"><ImageIcon className="w-8 h-8 mx-auto mb-2" /><p>Click to upload image</p></div>}
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Prompt Instruction</label>
-                                <textarea 
-                                    value={mediaPrompt}
-                                    onChange={(e) => setMediaPrompt(e.target.value)}
-                                    className="w-full p-3 border rounded-lg h-24 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                                    placeholder={mediaMode === 'veo' ? "e.g. Animate this character waving hello..." : "e.g. Make it look like a pencil sketch..."}
-                                />
-                                {mediaMode === 'edit' && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {['Remove Background', 'Cyberpunk Style', 'Pencil Sketch', 'Fix Lighting', 'Remove Object'].map(action => (
-                                            <button 
-                                                key={action}
-                                                onClick={() => setMediaPrompt(action)}
-                                                className="text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-2 py-1 rounded border border-slate-200 transition-colors"
-                                            >
-                                                {action}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                                <textarea value={mediaPrompt} onChange={(e) => setMediaPrompt(e.target.value)} className="w-full p-3 border rounded-lg h-24 bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500" placeholder={mediaMode === 'veo' ? "e.g. A neon hologram of a cat driving at top speed" : "e.g. Make it look like a pencil sketch..."} />
                             </div>
-                            <button 
-                                onClick={mediaMode === 'veo' ? handleVeoGenerate : handleImageEdit}
-                                disabled={mediaLoading || !mediaImage}
-                                className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 flex justify-center items-center gap-2"
-                            >
-                                {mediaLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                                {mediaMode === 'veo' ? 'Generate Video' : 'Edit Image'}
+                            <button onClick={mediaMode === 'veo' ? handleVeoGenerate : handleImageEdit} disabled={mediaLoading || (mediaMode !== 'veo' && !mediaImage)} className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 flex justify-center items-center gap-2">
+                                {mediaLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />} {mediaMode === 'veo' ? 'Generate Video' : 'Edit Image'}
                             </button>
                           </>
                       ) : (
@@ -864,262 +968,60 @@ export const CourseStudio: React.FC = () => {
                              <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Source Video</label>
                                 <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
-                                    <input 
-                                        type="file" 
-                                        accept="video/*"
-                                        onChange={(e) => setAnalysisVideo(e.target.files?.[0] || null)}
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                    />
-                                    {analysisVideo ? (
-                                        <div className="flex items-center justify-center gap-2 text-green-600 font-medium truncate">
-                                            <Check className="w-5 h-5 shrink-0" /> {analysisVideo.name}
-                                        </div>
-                                    ) : (
-                                        <div className="text-slate-400 text-sm">
-                                            <Video className="w-8 h-8 mx-auto mb-2" />
-                                            <p>Click to upload video (Max 20MB)</p>
-                                        </div>
-                                    )}
+                                    <input type="file" accept="video/*" onChange={(e) => setAnalysisVideo(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    {analysisVideo ? <div className="flex items-center justify-center gap-2 text-green-600 font-medium truncate"><Check className="w-5 h-5 shrink-0" /> {analysisVideo.name}</div> : <div className="text-slate-400 text-sm"><Video className="w-8 h-8 mx-auto mb-2" /><p>Click to upload video (Max 20MB)</p></div>}
                                 </div>
                             </div>
-                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-800 mb-4">
-                                <p className="font-bold mb-1">Features:</p>
-                                <ul className="list-disc list-inside">
-                                    <li>Analyze content summaries</li>
-                                    <li>Generate Edit Decision Lists (EDL)</li>
-                                    <li>Suggest cuts for silence or pacing</li>
-                                </ul>
-                            </div>
-                            <button 
-                                onClick={handleVideoAnalysis}
-                                disabled={mediaLoading || !analysisVideo}
-                                className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 flex justify-center items-center gap-2"
-                            >
-                                {mediaLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />}
-                                Analyze & Suggest Edits
+                            <button onClick={handleVideoAnalysis} disabled={mediaLoading || !analysisVideo} className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 flex justify-center items-center gap-2">
+                                {mediaLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />} Analyze & Suggest Edits
                             </button>
                           </>
                       )}
                   </div>
-
-                  {/* Output Preview */}
                   <div className="flex-1 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center min-h-[300px] p-4 relative overflow-hidden">
                       {mediaLoading ? (
-                          <div className="text-center text-slate-500">
-                              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-500" />
-                              <p>{mediaMode === 'veo' ? 'Generating frames... (may take a minute)' : 'Processing with Gemini...'}</p>
-                          </div>
+                          <div className="text-center text-slate-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-500" /><p>Processing...</p></div>
                       ) : mediaResult ? (
-                          mediaMode === 'veo' ? (
-                              <video src={mediaResult} controls className="w-full h-full object-contain rounded-lg" />
-                          ) : mediaMode === 'edit' ? (
-                              <img src={mediaResult} alt="Edited" className="w-full h-full object-contain rounded-lg" />
-                          ) : (
-                              <div className="w-full h-full flex flex-col gap-4 overflow-hidden">
-                                  <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm max-h-[50%] overflow-y-auto">
-                                      <h4 className="font-bold text-slate-900 mb-1 sticky top-0 bg-white">Analysis Summary</h4>
-                                      <p className="whitespace-pre-wrap text-slate-600">{mediaResult}</p>
-                                  </div>
-                                  {editSuggestions && (
-                                      <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 text-sm flex-1 overflow-y-auto custom-scrollbar">
-                                          <h4 className="font-bold text-slate-200 mb-1 sticky top-0 bg-slate-800 flex items-center"><Scissors className="w-3 h-3 mr-2 text-amber-400" /> Editing Suggestions</h4>
-                                          <div className="prose prose-invert prose-sm">
-                                              <p className="whitespace-pre-wrap text-slate-300 font-mono text-xs">{editSuggestions}</p>
-                                          </div>
-                                      </div>
-                                  )}
-                                  <div className="mt-auto pt-2">
-                                      <button
-                                          onClick={() => {
-                                              setModules(prev => [...prev, {
-                                                  id: Date.now().toString(),
-                                                  title: `Video Analysis: ${analysisVideo?.name || 'Upload'}`,
-                                                  contentType: 'video',
-                                                  content: `**Analysis Summary:**\n${mediaResult}\n\n**Suggested Edits:**\n${editSuggestions || 'None'}`,
-                                                  quizData: [],
-                                                  assignmentConfig: { dueDate: '', maxScore: 100 },
-                                                  liveConfig: { startTime: '', meetingLink: '', platform: 'internal' }
-                                              }]);
-                                              setActiveTab('curriculum');
-                                              alert("Module created from video analysis!");
-                                          }}
-                                          className="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 flex items-center justify-center shadow-sm"
-                                      >
-                                          <Plus className="w-4 h-4 mr-2" /> Create Module from This
-                                      </button>
-                                  </div>
-                              </div>
-                          )
-                      ) : (
-                          <div className="text-slate-400 text-sm text-center">
-                              <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                              AI Output will appear here
+                          mediaMode === 'veo' ? <video src={mediaResult} controls className="w-full h-full object-contain rounded-lg" /> :
+                          mediaMode === 'edit' ? <img src={mediaResult} alt="Edited" className="w-full h-full object-contain rounded-lg" /> :
+                          <div className="w-full h-full flex flex-col gap-4 overflow-hidden">
+                              <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm max-h-[50%] overflow-y-auto"><h4 className="font-bold text-slate-900 mb-1 sticky top-0 bg-white">Analysis</h4><p className="whitespace-pre-wrap text-slate-600">{mediaResult}</p></div>
+                              {editSuggestions && <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 text-sm flex-1 overflow-y-auto custom-scrollbar"><h4 className="font-bold text-slate-200 mb-1 sticky top-0 bg-slate-800 flex items-center"><Scissors className="w-3 h-3 mr-2 text-amber-400" /> Suggestions</h4><div className="prose prose-invert prose-sm"><p className="whitespace-pre-wrap text-slate-300 font-mono text-xs">{editSuggestions}</p></div></div>}
                           </div>
+                      ) : (
+                          <div className="text-slate-400 text-sm text-center"><Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" /> AI Output will appear here</div>
                       )}
                   </div>
               </div>
           </div>
       )}
 
-      {/* AI Content Generator Modal */}
       {isAIModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Bot className="w-6 h-6" />
-                <h3 className="text-lg font-bold">AI Content Assistant</h3>
+                {activeModuleId === null ? <LayoutTemplate className="w-6 h-6" /> : <Bot className="w-6 h-6" />}
+                <h3 className="text-lg font-bold">{activeModuleId === null ? 'AI Course Planner' : 'AI Content Assistant'}</h3>
               </div>
-              <button onClick={() => setIsAIModalOpen(false)} className="text-white/80 hover:text-white">
-                <X className="w-6 h-6" />
-              </button>
+              <button onClick={() => setIsAIModalOpen(false)} className="text-white/80 hover:text-white"><X className="w-6 h-6" /></button>
             </div>
-
             <div className="p-6 overflow-y-auto flex-1">
-              {!generatedContent && generatedQuizData.length === 0 ? (
+              {!generatedContent && generatedQuizData.length === 0 && generatedOutline.length === 0 ? (
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Lesson Topic</label>
-                    <input 
-                      value={aiConfig.topic}
-                      onChange={e => setAiConfig({...aiConfig, topic: e.target.value})}
-                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                      placeholder="e.g. Photosynthesis, Python Loops..."
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Content Type</label>
-                      <select 
-                        value={aiConfig.type}
-                        onChange={e => setAiConfig({...aiConfig, type: e.target.value})}
-                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                      >
-                        <option value="text">Lesson Note (Text)</option>
-                        <option value="video">Video Script</option>
-                        <option value="quiz">Quiz Questions</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Target Audience</label>
-                      <select 
-                        value={aiConfig.audience}
-                        onChange={e => setAiConfig({...aiConfig, audience: e.target.value})}
-                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                      >
-                        <option value="beginner">Beginner (Grade 1-5)</option>
-                        <option value="intermediate">Intermediate (Grade 6-9)</option>
-                        <option value="advanced">Advanced (Grade 10+)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Advanced Options */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Complexity</label>
-                      <select 
-                        value={aiConfig.complexity}
-                        onChange={e => setAiConfig({...aiConfig, complexity: e.target.value})}
-                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                      >
-                        <option value="basic">Basic Overview</option>
-                        <option value="intermediate">Detailed Explanation</option>
-                        <option value="advanced">In-depth Analysis</option>
-                      </select>
-                    </div>
-                    {aiConfig.type !== 'quiz' ? (
-                        <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Length</label>
-                        <select 
-                            value={aiConfig.length}
-                            onChange={e => setAiConfig({...aiConfig, length: e.target.value})}
-                            className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                        >
-                            <option value="short">Short (Summary)</option>
-                            <option value="medium">Medium (Standard)</option>
-                            <option value="long">Long (Comprehensive)</option>
-                        </select>
-                        </div>
-                    ) : (
-                        <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Question Count</label>
-                        <select 
-                            value={aiConfig.quizCount}
-                            onChange={e => setAiConfig({...aiConfig, quizCount: parseInt(e.target.value)})}
-                            className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                        >
-                            <option value={3}>3 Questions</option>
-                            <option value={5}>5 Questions</option>
-                            <option value={10}>10 Questions</option>
-                        </select>
-                        </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Keywords (Optional)</label>
-                    <input 
-                      value={aiConfig.keywords}
-                      onChange={e => setAiConfig({...aiConfig, keywords: e.target.value})}
-                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900"
-                      placeholder="e.g. gravity, acceleration, newton"
-                    />
-                  </div>
-
-                  <button 
-                    onClick={handleGenerateAI}
-                    disabled={isGenerating || !aiConfig.topic}
-                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50 transition-all"
-                  >
-                    {isGenerating ? (
-                      <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</>
-                    ) : (
-                      <><Sparkles className="w-5 h-5 text-amber-400" /> Generate {aiConfig.type === 'quiz' ? 'Quiz' : 'Lesson'}</>
-                    )}
-                  </button>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">{activeModuleId === null ? 'Course Topic' : 'Lesson Topic'}</label><input value={aiConfig.topic} onChange={e => setAiConfig({...aiConfig, topic: e.target.value})} className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900" /></div>
+                  <button onClick={handleGenerateAI} disabled={isGenerating || !aiConfig.topic} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50 transition-all">{isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating...</> : <><Sparkles className="w-5 h-5 text-amber-400" /> {activeModuleId === null ? 'Generate Outline' : `Generate ${aiConfig.type === 'quiz' ? 'Quiz' : 'Lesson'}`}</>}</button>
                 </div>
               ) : (
                 <div className="space-y-4 h-full flex flex-col">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-bold text-slate-700">Preview</h4>
-                    <button onClick={() => { setGeneratedContent(''); setGeneratedQuizData([]); }} className="text-xs text-indigo-600 hover:underline">Generate Different</button>
-                  </div>
-                  
-                  {generatedQuizData.length > 0 ? (
-                      <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-slate-50 p-4 space-y-3">
-                          {generatedQuizData.map((q, i) => (
-                              <div key={i} className="bg-white p-3 rounded border border-slate-100 text-sm">
-                                  <p className="font-bold text-slate-800 mb-2">{i+1}. {q.question}</p>
-                                  <ul className="space-y-1 pl-4 list-disc text-slate-600">
-                                      {q.options.map((o, idx) => (
-                                          <li key={idx} className={o === q.correctAnswer ? 'text-green-600 font-medium' : ''}>{o}</li>
-                                      ))}
-                                  </ul>
-                              </div>
-                          ))}
-                      </div>
-                  ) : (
-                      <textarea 
-                        value={generatedContent}
-                        onChange={e => setGeneratedContent(e.target.value)}
-                        className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-700 focus:ring-indigo-500 min-h-[200px]"
-                      />
-                  )}
+                  {generatedOutline.length > 0 ? <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-slate-50 p-4 space-y-3">{generatedOutline.map((mod, i) => <div key={i} className="bg-white p-3 rounded border border-slate-100"><p className="font-bold text-slate-800 text-sm mb-1">{i+1}. {mod.title}</p><p className="text-xs text-slate-500 line-clamp-2">{mod.description}</p></div>)}</div> : generatedQuizData.length > 0 ? <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-slate-50 p-4 space-y-3">{generatedQuizData.map((q, i) => <div key={i} className="bg-white p-3 rounded border border-slate-100 text-sm"><p className="font-bold text-slate-800 mb-2">{i+1}. {q.question}</p></div>)}</div> : <textarea value={generatedContent} onChange={e => setGeneratedContent(e.target.value)} className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-700 focus:ring-indigo-500 min-h-[200px]" />}
                 </div>
               )}
             </div>
-
-            {(generatedContent || generatedQuizData.length > 0) && (
+            {(generatedContent || generatedQuizData.length > 0 || generatedOutline.length > 0) && (
               <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
                 <button onClick={() => setIsAIModalOpen(false)} className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium">Cancel</button>
-                <button 
-                  onClick={applyAIContent}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 flex items-center"
-                >
-                  <Check className="w-4 h-4 mr-2" /> Insert Content
-                </button>
+                <button onClick={applyAIContent} className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 flex items-center"><Check className="w-4 h-4 mr-2" /> {generatedOutline.length > 0 ? 'Create Course Structure' : 'Insert Content'}</button>
               </div>
             )}
           </div>

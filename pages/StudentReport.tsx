@@ -1,13 +1,26 @@
 
-import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Award, TrendingUp, Clock, CheckCircle, AlertTriangle, FileText, Download, Printer, Share2, ChevronDown, Calendar, BookOpen } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, MapPin, Award, TrendingUp, Clock, CheckCircle, AlertTriangle, FileText, Download, Printer, Share2, ChevronDown, Calendar, BookOpen, Search, Filter, ArrowLeft, Eye, Users, BarChart2, PieChart as PieChartIcon } from 'lucide-react';
 import { 
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, 
-  BarChart, Bar, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis 
+  BarChart, Bar, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  PieChart, Pie, Cell 
 } from 'recharts';
+import { ToastContext, AuthContext } from '../App';
+import { UserRole } from '../types';
 
-// --- EXTENDED MOCK DATA ---
-const mockStudentData = {
+// --- MOCK DATA ---
+const mockClassStudents = [
+  { id: '1', name: 'Kwame Mensah', student_id: 'ADM/23/001', class: '5A', avg_grade: 88, attendance: 96, status: 'Excellent', avatar: 'K' },
+  { id: '2', name: 'Ama Osei', student_id: 'ADM/23/002', class: '5A', avg_grade: 92, attendance: 98, status: 'Excellent', avatar: 'A' },
+  { id: '3', name: 'Kofi Annan', student_id: 'ADM/23/003', class: '5B', avg_grade: 75, attendance: 85, status: 'Average', avatar: 'K' },
+  { id: '4', name: 'Sarah Smith', student_id: 'ADM/23/004', class: '5A', avg_grade: 65, attendance: 78, status: 'Needs Support', avatar: 'S' },
+  { id: '5', name: 'John Doe', student_id: 'ADM/23/005', class: '5B', avg_grade: 82, attendance: 90, status: 'Good', avatar: 'J' },
+  { id: '6', name: 'Esi Mansah', student_id: 'ADM/23/006', class: '5A', avg_grade: 70, attendance: 82, status: 'Average', avatar: 'E' },
+];
+
+const baseStudentData = {
   name: 'Kwame Mensah',
   id: 'ADM/23/001',
   dob: '12th March, 2012',
@@ -54,18 +67,85 @@ const mockStudentData = {
 };
 
 export const StudentReport: React.FC = () => {
+  const { user } = useContext(AuthContext);
+  const { showToast } = useContext(ToastContext);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isInstructor = user?.roles.some(r => [UserRole.TEACHER, UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.TUTOR].includes(r));
+
+  // State
   const [activeTab, setActiveTab] = useState<'overview' | 'academics' | 'behavior'>('overview');
-  const [student] = useState(mockStudentData);
+  const [viewMode, setViewMode] = useState<'list' | 'report'>(location.state?.student ? 'report' : (isInstructor ? 'list' : 'report'));
+  
+  // List View State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [classFilter, setClassFilter] = useState('All');
+
+  // Selected Student Data
+  const [student, setStudent] = useState<any>(() => {
+      if (location.state?.student) {
+          // Merge passed state with base mock data structure to ensure charts work
+          const s = location.state.student;
+          return {
+              ...baseStudentData,
+              name: s.name,
+              id: s.id || baseStudentData.id,
+              class: s.grade?.replace('Class ', '') || '5A',
+              attendance: s.attendance || 90,
+              avg_grade: s.avgGrade || 85,
+          };
+      }
+      return baseStudentData;
+  });
 
   const handlePrint = () => {
-    window.print();
+    showToast('Preparing document for printing...', 'info');
+    setTimeout(() => window.print(), 500);
   };
 
   const handleDownload = (format: 'PDF' | 'XLSX') => {
-    // Simulate download
-    const fileName = `Report_${student.name.replace(' ', '_')}_${format}.${format.toLowerCase()}`;
-    alert(`Generating ${format} report: ${fileName}\n\nThis would trigger a backend generation job.`);
+    showToast(`Generating ${format} report...`, 'info');
+    setTimeout(() => {
+        showToast(`${format} download started`, 'success');
+    }, 1500);
   };
+
+  const handleViewStudent = (studentSummary: any) => {
+      // Simulate fetching detailed data
+      const detailedData = {
+          ...baseStudentData,
+          name: studentSummary.name,
+          id: studentSummary.student_id,
+          class: studentSummary.class,
+          avg_grade: studentSummary.avg_grade,
+          attendance: studentSummary.attendance,
+          // Randomize chart data slightly for effect
+          performance_trend: baseStudentData.performance_trend.map(d => ({
+              ...d, 
+              student: d.student + (Math.random() * 10 - 5)
+          }))
+      };
+      setStudent(detailedData);
+      setViewMode('report');
+      window.scrollTo(0, 0);
+  };
+
+  const filteredStudents = mockClassStudents.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.student_id.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesClass = classFilter === 'All' || s.class === classFilter;
+      return matchesSearch && matchesClass;
+  });
+
+  // Analytics for List View
+  const classAverage = Math.round(mockClassStudents.reduce((acc, curr) => acc + curr.avg_grade, 0) / mockClassStudents.length);
+  const attendanceAvg = Math.round(mockClassStudents.reduce((acc, curr) => acc + curr.attendance, 0) / mockClassStudents.length);
+  const statusDistribution = [
+    { name: 'Excellent', value: mockClassStudents.filter(s => s.status === 'Excellent').length, fill: '#22c55e' },
+    { name: 'Good', value: mockClassStudents.filter(s => s.status === 'Good').length, fill: '#3b82f6' },
+    { name: 'Average', value: mockClassStudents.filter(s => s.status === 'Average').length, fill: '#eab308' },
+    { name: 'Needs Support', value: mockClassStudents.filter(s => s.status === 'Needs Support').length, fill: '#ef4444' },
+  ].filter(d => d.value > 0);
 
   const GradeBadge = ({ grade }: { grade: string }) => {
     const colors: Record<string, string> = {
@@ -82,8 +162,176 @@ export const StudentReport: React.FC = () => {
     );
   };
 
+  // --- STUDENT LIST VIEW (For Instructors) ---
+  if (viewMode === 'list') {
+      return (
+          <div className="space-y-6 max-w-7xl mx-auto pb-12">
+              <div>
+                  <h1 className="text-2xl font-bold text-slate-900">Student Reports & Analytics</h1>
+                  <p className="text-slate-500">Overview of class performance, attendance, and individual progress.</p>
+              </div>
+
+              {/* Class Aggregate Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-indigo-100 text-indigo-600 rounded-full">
+                          <Users className="w-6 h-6" />
+                      </div>
+                      <div>
+                          <p className="text-xs font-bold text-slate-500 uppercase">Total Students</p>
+                          <p className="text-2xl font-bold text-slate-900">{mockClassStudents.length}</p>
+                      </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-green-100 text-green-600 rounded-full">
+                          <TrendingUp className="w-6 h-6" />
+                      </div>
+                      <div>
+                          <p className="text-xs font-bold text-slate-500 uppercase">Class Average</p>
+                          <p className="text-2xl font-bold text-slate-900">{classAverage}%</p>
+                      </div>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-blue-100 text-blue-600 rounded-full">
+                          <CheckCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                          <p className="text-xs font-bold text-slate-500 uppercase">Avg Attendance</p>
+                          <p className="text-2xl font-bold text-slate-900">{attendanceAvg}%</p>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Status Distribution Chart */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-1">
+                      <h3 className="font-bold text-slate-900 mb-4 flex items-center">
+                          <PieChartIcon className="w-4 h-4 mr-2 text-indigo-600" /> Performance Status
+                      </h3>
+                      <div className="h-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                  <Pie
+                                      data={statusDistribution}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={40}
+                                      outerRadius={70}
+                                      paddingAngle={5}
+                                      dataKey="value"
+                                  >
+                                      {statusDistribution.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={entry.fill} strokeWidth={0} />
+                                      ))}
+                                  </Pie>
+                                  <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '11px'}} />
+                              </PieChart>
+                          </ResponsiveContainer>
+                      </div>
+                  </div>
+
+                  {/* Filters & Table */}
+                  <div className="lg:col-span-2 space-y-4">
+                      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+                          <div className="flex gap-4 w-full sm:w-auto">
+                              <div className="relative flex-1 sm:w-64">
+                                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                  <input 
+                                      type="text" 
+                                      placeholder="Search student..." 
+                                      value={searchQuery}
+                                      onChange={(e) => setSearchQuery(e.target.value)}
+                                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                              </div>
+                              <select 
+                                  value={classFilter}
+                                  onChange={(e) => setClassFilter(e.target.value)}
+                                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                              >
+                                  <option value="All">All Classes</option>
+                                  <option value="5A">Class 5A</option>
+                                  <option value="5B">Class 5B</option>
+                              </select>
+                          </div>
+                      </div>
+
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                          <table className="min-w-full divide-y divide-slate-200">
+                              <thead className="bg-slate-50">
+                                  <tr>
+                                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Student</th>
+                                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Class</th>
+                                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Avg. Grade</th>
+                                      <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                      <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-slate-200">
+                                  {filteredStudents.length === 0 ? (
+                                      <tr>
+                                          <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                              No students found matching your filters.
+                                          </td>
+                                      </tr>
+                                  ) : filteredStudents.map((s) => (
+                                      <tr key={s.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => handleViewStudent(s)}>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                              <div className="flex items-center">
+                                                  <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold mr-3 border border-indigo-200 text-sm">
+                                                      {s.avatar}
+                                                  </div>
+                                                  <div>
+                                                      <div className="text-sm font-bold text-slate-900">{s.name}</div>
+                                                      <div className="text-xs text-slate-500">{s.student_id}</div>
+                                                  </div>
+                                              </div>
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                              <span className="px-2 py-1 bg-slate-100 rounded text-xs font-bold text-slate-600">{s.class}</span>
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                              <div className="text-sm font-bold text-slate-900">{s.avg_grade}%</div>
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                  ${s.status === 'Excellent' ? 'bg-green-100 text-green-800' : 
+                                                    s.status === 'Good' ? 'bg-blue-100 text-blue-800' :
+                                                    s.status === 'Average' ? 'bg-yellow-100 text-yellow-800' : 
+                                                    'bg-red-100 text-red-800'}`}>
+                                                  {s.status}
+                                              </span>
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                              <button className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center ml-auto">
+                                                  <Eye className="w-3.5 h-3.5 mr-1" /> View Report
+                                              </button>
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // --- REPORT VIEW (For Parents & Instructors viewing a single student) ---
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+      {/* Back Navigation for Instructors */}
+      {isInstructor && (
+          <button 
+            onClick={() => setViewMode('list')}
+            className="flex items-center text-slate-500 hover:text-slate-900 font-medium mb-2 transition-colors hover:translate-x-1"
+          >
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Student List
+          </button>
+      )}
+
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm print:hidden">
         <div>
@@ -119,8 +367,9 @@ export const StudentReport: React.FC = () => {
           <div className="relative flex justify-between items-end -mt-12 mb-6">
             <div className="flex items-end">
               <div className="w-24 h-24 bg-white p-1 rounded-full shadow-lg">
-                <div className="w-full h-full bg-slate-100 rounded-full flex items-center justify-center text-indigo-600 text-3xl font-bold border-2 border-indigo-50">
-                  {student.name.split(' ').map(n => n[0]).join('')}
+                <div className="w-full h-full bg-slate-100 rounded-full flex items-center justify-center text-indigo-600 text-3xl font-bold border-2 border-indigo-50 overflow-hidden">
+                  {/* Try to show avatar image if available from parent dash props, else initials */}
+                  {student.name.split(' ').map((n: string) => n[0]).join('')}
                 </div>
               </div>
               <div className="ml-4 mb-1">
@@ -287,7 +536,7 @@ export const StudentReport: React.FC = () => {
                    </tr>
                  </thead>
                  <tbody className="bg-white divide-y divide-slate-100">
-                   {student.subjects.map((subject, index) => (
+                   {student.subjects.map((subject: any, index: number) => (
                      <tr key={index} className={`hover:bg-slate-50 transition-colors ${subject.final < subject.class_avg ? 'bg-red-50/30' : ''}`}>
                        <td className="px-6 py-4 whitespace-nowrap">
                          <div className="text-sm font-bold text-slate-900">{subject.name}</div>
@@ -329,7 +578,7 @@ export const StudentReport: React.FC = () => {
            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
               <h3 className="font-bold text-slate-900 mb-6">Behavior Log</h3>
               <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                 {student.behavior_log.map(log => (
+                 {student.behavior_log.map((log: any) => (
                    <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                       {/* Icon */}
                       <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow ${
@@ -362,7 +611,7 @@ export const StudentReport: React.FC = () => {
            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
               <h3 className="font-bold text-slate-900 mb-6">Earned Badges</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                 {student.badges.map((badge, i) => (
+                 {student.badges.map((badge: string, i: number) => (
                     <div key={i} className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-colors group cursor-default">
                        <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
                           {['🏆', '⭐', '🚀', '💻'][i % 4]}

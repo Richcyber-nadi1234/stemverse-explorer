@@ -1,37 +1,42 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles, Bot, Star, Trophy } from 'lucide-react';
+import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles, Bot, Star, Trophy, Info } from 'lucide-react';
 import { Lesson } from '../types';
-import { AuthContext } from '../App';
+import { AuthContext, CourseContext, ToastContext } from '../App';
 
 const mockLessons: Lesson[] = [
   // Robotics Course
-  { id: 'l1', course_id: 'c_robotics_fund', title: '1. What is a Robot?', type: 'video', duration_mins: 5, completed: true, content_url: 'https://www.youtube.com/embed/8wYOXIe5wts' },
-  { id: 'l2', course_id: 'c_robotics_fund', title: '2. Sensors & Motors', type: 'video', duration_mins: 10, completed: false, content_url: 'https://www.youtube.com/embed/tIeHLnjs5U8' },
-  { id: 'l3', course_id: 'c_robotics_fund', title: '3. Live: Build Along', type: 'live_class', duration_mins: 45, completed: false, liveConfig: { startTime: 'Saturday, 10:00 AM', platform: 'internal' } },
+  { id: 'l1', course_id: 'c1', title: '1. What is a Robot?', type: 'video', duration_mins: 5, completed: true, content_url: 'https://www.youtube.com/embed/8wYOXIe5wts' },
+  { id: 'l2', course_id: 'c1', title: '2. Sensors & Motors', type: 'video', duration_mins: 10, completed: false, content_url: 'https://www.youtube.com/embed/tIeHLnjs5U8' },
+  { id: 'l3', course_id: 'c1', title: '3. Live: Build Along', type: 'live_class', duration_mins: 45, completed: false, liveConfig: { startTime: 'Saturday, 10:00 AM', platform: 'internal' } },
   
   // Python Course
-  { id: 'p1', course_id: 'c_python_kids', title: '1. Install Python & IDLE', type: 'video', duration_mins: 8, completed: false, content_url: 'https://www.youtube.com/embed/7DqDTcEez8E' },
-  { id: 'p2', course_id: 'c_python_kids', title: '2. AI Generated: Understanding Loops', type: 'video', duration_mins: 5, completed: false }, // AI Placeholder
-  { id: 'p3', course_id: 'c_python_kids', title: '3. Your First Variables', type: 'text', duration_mins: 10, completed: false },
-  { id: 'p4', course_id: 'c_python_kids', title: '4. Mini-Quiz: Logic', type: 'quiz', duration_mins: 10, completed: false },
+  { id: 'p1', course_id: 'c2', title: '1. Install Python & IDLE', type: 'video', duration_mins: 8, completed: false, content_url: 'https://www.youtube.com/embed/7DqDTcEez8E' },
+  { id: 'p2', course_id: 'c2', title: '2. AI Generated: Understanding Loops', type: 'video', duration_mins: 5, completed: false }, // AI Placeholder
+  { id: 'p3', course_id: 'c2', title: '3. Your First Variables', type: 'text', duration_mins: 10, completed: false },
+  { id: 'p4', course_id: 'c2', title: '4. Mini-Quiz: Logic', type: 'quiz', duration_mins: 10, completed: false },
 
-  // Scratch Course
-  { id: 's1', course_id: 'c_scratch_magic', title: '1. Intro to Scratch', type: 'video', duration_mins: 6, completed: false, content_url: 'https://www.youtube.com/embed/jXUZaf5D12A' },
-  { id: 's2', course_id: 'c_scratch_magic', title: '2. Making the Cat Move', type: 'video', duration_mins: 12, completed: false, content_url: 'https://www.youtube.com/embed/VIpmKeqdlLQ' },
+  // Solar System Course (New)
+  { id: 'ss1', course_id: 'm3', title: '1. The Sun', type: 'video', duration_mins: 10, completed: false, content_url: 'https://www.youtube.com/embed/2HoTK_coso2s' },
+  { id: 'ss2', course_id: 'm3', title: '2. Mercury & Venus', type: 'text', duration_mins: 15, completed: false },
 ];
 
 export const CoursePlayer: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { user, updateUser } = useContext(AuthContext);
+  const { courses, updateCourse } = useContext(CourseContext);
+  const { showToast } = useContext(ToastContext);
   
-  const courseLessons = mockLessons.filter(l => l.course_id === courseId);
-  // Fallback if courseId doesn't match (e.g. generic demo)
-  const displayLessons = courseLessons.length > 0 ? courseLessons : mockLessons.slice(0,3);
+  // Find current course from context
+  const activeCourse = courses.find(c => c.id === courseId);
 
-  const [activeLesson, setActiveLesson] = useState<Lesson>(displayLessons[0]);
+  // Filter lessons based on current course ID
+  const courseLessons = mockLessons.filter(l => l.course_id === courseId);
+  const displayLessons = courseLessons.length > 0 ? courseLessons : [];
+
+  const [activeLesson, setActiveLesson] = useState<Lesson | null>(displayLessons[0] || null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [submissionStatus, setSubmissionStatus] = useState<'pending' | 'submitted' | 'graded'>('pending');
@@ -40,14 +45,23 @@ export const CoursePlayer: React.FC = () => {
   const [showCoinReward, setShowCoinReward] = useState(false);
   const [showCompletionBonus, setShowCompletionBonus] = useState(false);
   
-  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set(['l1']));
+  // Local tracking of completed lessons for immediate UI feedback before context sync
+  const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
 
-  // Update active lesson when route changes or lessons load
+  // Initialize state based on course context or mock data
   useEffect(() => {
       if (displayLessons.length > 0) {
           setActiveLesson(displayLessons[0]);
+          // In a real app, completedLessonIds would come from backend per user/course enrollment record
+          // For now, we rely on the mock data's 'completed' flag or local state
+          const initialCompleted = new Set(displayLessons.filter(l => l.completed).map(l => l.id));
+          setCompletedLessonIds(initialCompleted);
       }
   }, [courseId]);
+
+  if (!activeCourse) {
+      return <div className="p-8 text-center text-white">Course not found.</div>;
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
@@ -58,15 +72,25 @@ export const CoursePlayer: React.FC = () => {
   const handleSubmitAssignment = () => {
       if (!submissionFile) return;
       setSubmissionStatus('submitted');
-      markLessonComplete(activeLesson.id);
-      alert('Assignment submitted successfully!');
+      if (activeLesson) markLessonComplete(activeLesson.id);
+      showToast('Assignment submitted successfully!', 'success');
   };
 
   const markLessonComplete = (lessonId: string) => {
-      if (!completedLessons.has(lessonId)) {
-          const newCompleted = new Set(completedLessons).add(lessonId);
-          setCompletedLessons(newCompleted);
+      if (!completedLessonIds.has(lessonId)) {
+          const newCompleted = new Set(completedLessonIds).add(lessonId);
+          setCompletedLessonIds(newCompleted);
           
+          // Update Course Progress in Context
+          const newCompletedCount = (activeCourse.completed_lessons || 0) + 1;
+          const newProgress = Math.min(100, Math.round((newCompletedCount / (activeCourse.total_lessons || 1)) * 100));
+          
+          updateCourse({
+              ...activeCourse,
+              completed_lessons: newCompletedCount,
+              progress: newProgress
+          });
+
           // Check Course Completion
           const isCourseComplete = newCompleted.size === displayLessons.length;
           
@@ -93,7 +117,7 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const joinLiveClass = () => {
-      if (activeLesson.liveConfig?.meetingLink) {
+      if (activeLesson?.liveConfig?.meetingLink) {
           window.open(activeLesson.liveConfig.meetingLink, '_blank');
       } else {
           navigate('/live');
@@ -101,9 +125,11 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const handleAskInstructor = () => {
-      window.dispatchEvent(new CustomEvent('open-ai-tutor', { 
-          detail: { context: activeLesson.title } 
-      }));
+      if (activeLesson) {
+        window.dispatchEvent(new CustomEvent('open-ai-tutor', { 
+            detail: { context: activeLesson.title } 
+        }));
+      }
   };
 
   return (
@@ -176,7 +202,7 @@ export const CoursePlayer: React.FC = () => {
              <button onClick={() => navigate('/lms')} className="text-slate-400 hover:text-white">
                  <ChevronLeft className="w-5 h-5" />
              </button>
-             <span className="font-bold text-sm truncate">{activeLesson.title}</span>
+             <span className="font-bold text-sm truncate">{activeLesson?.title || 'Course'}</span>
              <button onClick={() => setSidebarOpen(!sidebarOpen)}>
                  <Layout className="w-5 h-5 text-slate-400" />
              </button>
@@ -185,8 +211,12 @@ export const CoursePlayer: React.FC = () => {
         {/* Content Player */}
         <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
           
-          {/* VIDEO RENDERER */}
-          {activeLesson.type === 'video' ? (
+          {!activeLesson ? (
+              <div className="text-center text-slate-500">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Select a lesson to start learning.</p>
+              </div>
+          ) : activeLesson.type === 'video' ? (
             activeLesson.content_url ? (
                 <iframe 
                     src={activeLesson.content_url} 
@@ -262,12 +292,12 @@ export const CoursePlayer: React.FC = () => {
                       <button 
                         onClick={() => markLessonComplete(activeLesson.id)}
                         className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg ${
-                            completedLessons.has(activeLesson.id) 
+                            completedLessonIds.has(activeLesson.id) 
                             ? 'bg-green-100 text-green-700 shadow-none cursor-default' 
                             : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:-translate-y-1'
                         }`}
                       >
-                          {completedLessons.has(activeLesson.id) ? <><CheckCircle className="w-5 h-5" /> Completed</> : "Mark as Complete"}
+                          {completedLessonIds.has(activeLesson.id) ? <><CheckCircle className="w-5 h-5" /> Completed</> : "Mark as Complete"}
                       </button>
                   </div>
                 </div>
@@ -291,7 +321,7 @@ export const CoursePlayer: React.FC = () => {
             <div className="flex items-center gap-4">
                 <div className="hidden md:block">
                     <h2 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-1">Current Lesson</h2>
-                    <p className="text-white font-bold text-lg truncate max-w-md">{activeLesson.title}</p>
+                    <p className="text-white font-bold text-lg truncate max-w-md">{activeLesson?.title || 'Select a lesson'}</p>
                 </div>
             </div>
             <div className="flex items-center gap-4">
@@ -306,19 +336,30 @@ export const CoursePlayer: React.FC = () => {
       </div>
 
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-full lg:w-96' : 'w-0'} transition-all duration-300 bg-slate-800 border-l border-slate-700 flex flex-col shrink-0`}>
+      <div className={`${sidebarOpen ? 'w-full lg:w-96' : 'w-0'} transition-all duration-300 bg-slate-800 border-l border-slate-700 flex flex-col shrink-0 overflow-hidden`}>
         <div className="p-6 border-b border-slate-700 bg-slate-900/50">
             <Link to="/lms" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center mb-4 font-bold uppercase tracking-wider">
                 <ChevronLeft className="w-3 h-3 mr-1" /> Back to Course
             </Link>
-            <h3 className="font-bold text-xl leading-tight text-white mb-4">Course Curriculum</h3>
+            <h3 className="font-bold text-xl leading-tight text-white mb-2">{activeCourse.title}</h3>
+            
+            <div className="flex items-center gap-2 text-xs text-slate-400 mb-4">
+               <span className="flex items-center"><Info className="w-3 h-3 mr-1" /> {activeCourse.instructor}</span>
+               <span>•</span>
+               <span>{activeCourse.total_lessons} Lessons</span>
+            </div>
+
             <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                 <span>Progress</span>
-                <span>{Math.round((completedLessons.size / displayLessons.length) * 100)}%</span>
+                <span>{activeCourse.progress || 0}%</span>
             </div>
             <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
-                <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${(completedLessons.size / displayLessons.length) * 100}%` }}></div>
+                <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${activeCourse.progress || 0}%` }}></div>
             </div>
+        </div>
+
+        <div className="p-4 bg-slate-800/50 border-b border-slate-700 text-xs text-slate-300 leading-relaxed max-h-32 overflow-y-auto custom-scrollbar">
+            {activeCourse.description}
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -327,11 +368,11 @@ export const CoursePlayer: React.FC = () => {
                     key={lesson.id}
                     onClick={() => setActiveLesson(lesson)}
                     className={`w-full p-5 flex items-start gap-4 text-left hover:bg-slate-700/30 transition-colors border-b border-slate-700/30 group ${
-                        activeLesson.id === lesson.id ? 'bg-slate-700/50 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'
+                        activeLesson?.id === lesson.id ? 'bg-slate-700/50 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'
                     }`}
                 >
                     <div className="mt-1">
-                        {completedLessons.has(lesson.id) ? (
+                        {completedLessonIds.has(lesson.id) ? (
                             <CheckCircle className="w-5 h-5 text-green-500" />
                         ) : lesson.type === 'live_class' ? (
                              <div className="relative">
@@ -343,7 +384,7 @@ export const CoursePlayer: React.FC = () => {
                         )}
                     </div>
                     <div className="flex-1">
-                        <p className={`text-sm font-bold mb-1 ${activeLesson.id === lesson.id ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
+                        <p className={`text-sm font-bold mb-1 ${activeLesson?.id === lesson.id ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
                             {lesson.title}
                         </p>
                         <div className="flex items-center gap-3 text-xs text-slate-500">
@@ -358,12 +399,18 @@ export const CoursePlayer: React.FC = () => {
                     </div>
                 </button>
             ))}
+            {displayLessons.length === 0 && (
+                <div className="p-8 text-center text-slate-500 text-sm">
+                    No lessons available for this course yet.
+                </div>
+            )}
         </div>
 
         <div className="p-4 border-t border-slate-700 bg-slate-800">
             <button 
                 onClick={handleAskInstructor}
-                className="w-full py-3 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-colors shadow-lg"
+                disabled={!activeLesson}
+                className="w-full py-3 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <Bot className="w-4 h-4" /> Ask Newton (AI Tutor)
             </button>

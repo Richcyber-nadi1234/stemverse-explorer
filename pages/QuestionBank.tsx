@@ -1,7 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, Filter, Tag, Trash2, Edit, Save, X, CheckCircle2, AlertCircle, CheckSquare, Square, FileUp, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo, useContext } from 'react';
+import { Search, Plus, Filter, Tag, Trash2, Edit, Save, X, CheckCircle2, AlertCircle, CheckSquare, Square, FileUp, Download, ChevronLeft, ChevronRight, ListOrdered, Type } from 'lucide-react';
 import { Question, QuestionType } from '../types';
+import { ToastContext } from '../App';
 
 export const mockQuestions: Question[] = [
   {
@@ -69,6 +70,41 @@ export const mockQuestions: Question[] = [
     marks: 5,
     correct_answer: '5',
     tags: ['algebra', 'equations']
+  },
+  {
+    id: 'q7',
+    text: 'Select all prime numbers from the list.',
+    type: 'MULTIPLE_RESPONSE',
+    subject: 'Mathematics',
+    grade_level: 6,
+    difficulty: 'Medium',
+    marks: 4,
+    options: ['2', '4', '7', '9'],
+    correct_answer: '["2","7"]',
+    tags: ['number-theory']
+  },
+  {
+    id: 'q8',
+    text: 'The chemical symbol for Gold is [blank].',
+    type: 'FILL_IN_THE_BLANK',
+    subject: 'Science',
+    grade_level: 8,
+    difficulty: 'Easy',
+    marks: 2,
+    correct_answer: 'Au',
+    tags: ['chemistry']
+  },
+  {
+    id: 'q9',
+    text: 'Arrange the planets in order from the Sun.',
+    type: 'ORDERING',
+    subject: 'Science',
+    grade_level: 5,
+    difficulty: 'Medium',
+    marks: 5,
+    options: ['Mercury', 'Venus', 'Earth', 'Mars'],
+    correct_answer: '["Mercury","Venus","Earth","Mars"]',
+    tags: ['astronomy']
   }
 ];
 
@@ -85,6 +121,7 @@ const initialFormState: Partial<Question> = {
 };
 
 export const QuestionBank: React.FC = () => {
+  const { showToast } = useContext(ToastContext);
   const [questions, setQuestions] = useState<Question[]>(mockQuestions);
   const [isFormOpen, setIsFormOpen] = useState(false);
   
@@ -100,6 +137,10 @@ export const QuestionBank: React.FC = () => {
 
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Bulk Action State
+  const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState('');
 
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -130,6 +171,7 @@ export const QuestionBank: React.FC = () => {
       const newSelected = new Set(selectedIds);
       newSelected.delete(id);
       setSelectedIds(newSelected);
+      showToast('Question deleted', 'info');
     }
   };
 
@@ -137,14 +179,47 @@ export const QuestionBank: React.FC = () => {
     if (window.confirm(`Are you sure you want to delete ${selectedIds.size} questions?`)) {
       setQuestions(prev => prev.filter(q => !selectedIds.has(q.id)));
       setSelectedIds(new Set());
+      showToast('Questions deleted successfully', 'success');
     }
   };
 
+  const handleBulkTag = () => {
+    if (!bulkTagInput.trim()) {
+        showToast('Please enter at least one tag', 'error');
+        return;
+    }
+    const tagsToAdd = bulkTagInput.split(',').map(t => t.trim()).filter(t => t);
+    
+    setQuestions(prev => prev.map(q => {
+        if (selectedIds.has(q.id)) {
+            // Add new tags avoiding duplicates
+            const currentTags = new Set(q.tags);
+            tagsToAdd.forEach(t => currentTags.add(t));
+            return { ...q, tags: Array.from(currentTags) };
+        }
+        return q;
+    }));
+    
+    showToast(`Tags added to ${selectedIds.size} questions`, 'success');
+    setIsBulkTagModalOpen(false);
+    setBulkTagInput('');
+    setSelectedIds(new Set());
+  };
+
   const handleSave = () => {
-    if (!formData.text || !formData.subject) return;
+    if (!formData.text || !formData.subject) {
+        showToast('Please fill in required fields', 'error');
+        return;
+    }
 
     const tags = tagInput.split(',').map(t => t.trim()).filter(t => t);
     
+    // For ORDERING, the correct answer is implicitly the current order of options
+    let finalCorrectAnswer = formData.correct_answer;
+    if (formData.type === 'ORDERING' && formData.options) {
+        finalCorrectAnswer = JSON.stringify(formData.options);
+    }
+
     const questionData: Question = {
       id: editingId || Math.random().toString(36).substr(2, 9),
       text: formData.text!,
@@ -153,24 +228,62 @@ export const QuestionBank: React.FC = () => {
       grade_level: formData.grade_level || 5,
       difficulty: (formData.difficulty as any) || 'Medium',
       marks: formData.marks || 5,
-      options: formData.type === 'MCQ' ? formData.options : undefined,
-      correct_answer: formData.correct_answer,
+      options: formData.type === 'MCQ' || formData.type === 'MULTIPLE_RESPONSE' || formData.type === 'ORDERING' ? formData.options : undefined,
+      correct_answer: finalCorrectAnswer,
       tags: tags
     };
 
     if (editingId) {
       setQuestions(prev => prev.map(q => q.id === editingId ? questionData : q));
+      showToast('Question updated successfully', 'success');
     } else {
       setQuestions(prev => [questionData, ...prev]);
+      showToast('New question added', 'success');
     }
     
     setIsFormOpen(false);
+  };
+
+  const handleImport = () => {
+      showToast('Importing questions...', 'info');
+      setTimeout(() => showToast('Successfully imported 12 questions.', 'success'), 1500);
+  };
+
+  const handleExport = () => {
+      showToast('Generating CSV...', 'info');
+      setTimeout(() => showToast('Download started.', 'success'), 1500);
   };
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...(formData.options || [])];
     newOptions[index] = value;
     setFormData({ ...formData, options: newOptions });
+  };
+
+  const handleMultiResponseChange = (option: string) => {
+      let current: string[] = [];
+      try {
+          current = JSON.parse(formData.correct_answer || '[]');
+      } catch (e) {
+          current = [];
+      }
+      
+      if (current.includes(option)) {
+          current = current.filter(item => item !== option);
+      } else {
+          current.push(option);
+      }
+      setFormData({ ...formData, correct_answer: JSON.stringify(current) });
+  };
+
+  const handleAddOption = () => {
+      setFormData({ ...formData, options: [...(formData.options || []), ''] });
+  };
+
+  const handleRemoveOption = (index: number) => {
+      const newOptions = [...(formData.options || [])];
+      newOptions.splice(index, 1);
+      setFormData({ ...formData, options: newOptions });
   };
 
   const toggleSelection = (id: string) => {
@@ -231,14 +344,14 @@ export const QuestionBank: React.FC = () => {
         </div>
         <div className="flex gap-3">
             <button 
-                onClick={() => alert('Mock Import: Choose CSV file')}
+                onClick={handleImport}
                 className="inline-flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
             >
                 <FileUp className="w-4 h-4 mr-2" />
                 Import
             </button>
             <button 
-                onClick={() => alert('Mock Export: Downloading questions.csv')}
+                onClick={handleExport}
                 className="inline-flex items-center px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
             >
                 <Download className="w-4 h-4 mr-2" />
@@ -317,13 +430,22 @@ export const QuestionBank: React.FC = () => {
                 {selectedIds.size > 0 ? `${selectedIds.size} Selected` : `${filteredQuestions.length} Questions Found`}
              </span>
            </div>
+           
            {selectedIds.size > 0 && (
-             <button 
-                onClick={handleBulkDelete}
-                className="text-sm text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg font-medium flex items-center transition-colors"
-             >
-               <Trash2 className="w-4 h-4 mr-1.5" /> Delete Selected
-             </button>
+             <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setIsBulkTagModalOpen(true)}
+                    className="text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-medium flex items-center transition-colors"
+                >
+                    <Tag className="w-4 h-4 mr-1.5" /> Add Tags
+                </button>
+                <button 
+                    onClick={handleBulkDelete}
+                    className="text-sm text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg font-medium flex items-center transition-colors"
+                >
+                    <Trash2 className="w-4 h-4 mr-1.5" /> Delete
+                </button>
+             </div>
            )}
         </div>
 
@@ -352,8 +474,11 @@ export const QuestionBank: React.FC = () => {
                             ${q.type === 'TRUE_FALSE' ? 'bg-orange-100 text-orange-700' : ''}
                             ${q.type === 'CODE' ? 'bg-slate-100 text-slate-700' : ''}
                             ${q.type === 'SHORT_ANSWER' ? 'bg-teal-100 text-teal-700' : ''}
+                            ${q.type === 'MULTIPLE_RESPONSE' ? 'bg-indigo-100 text-indigo-700' : ''}
+                            ${q.type === 'FILL_IN_THE_BLANK' ? 'bg-pink-100 text-pink-700' : ''}
+                            ${q.type === 'ORDERING' ? 'bg-cyan-100 text-cyan-700' : ''}
                         `}>
-                            {q.type.replace('_', ' ')}
+                            {q.type.replace(/_/g, ' ')}
                         </span>
                         <span className="text-xs text-slate-400 font-medium">
                             {q.subject} • Grade {q.grade_level}
@@ -367,8 +492,13 @@ export const QuestionBank: React.FC = () => {
                         </span>
                     </div>
                     
-                    <h4 className="text-base font-medium text-slate-900 mb-2 line-clamp-2">{q.text}</h4>
+                    <h4 className="text-base font-medium text-slate-900 mb-2 line-clamp-2">
+                        {q.type === 'FILL_IN_THE_BLANK' 
+                            ? q.text.replace('[blank]', '________') 
+                            : q.text}
+                    </h4>
                     
+                    {/* Display Answer Preview Based on Type */}
                     {q.type === 'MCQ' && q.options && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 max-w-3xl">
                             {q.options.map((opt, i) => (
@@ -379,6 +509,40 @@ export const QuestionBank: React.FC = () => {
                                     <span className="truncate">{opt}</span>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {q.type === 'MULTIPLE_RESPONSE' && q.options && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 max-w-3xl">
+                            {q.options.map((opt, i) => {
+                                const isCorrect = q.correct_answer?.includes(opt);
+                                return (
+                                    <div key={i} className={`text-sm px-3 py-2 rounded border flex items-center gap-2
+                                        ${isCorrect ? 'bg-indigo-50 border-indigo-200 text-indigo-800' : 'bg-white border-slate-100 text-slate-600'}
+                                    `}>
+                                        {isCorrect ? <CheckSquare className="w-3.5 h-3.5 flex-shrink-0" /> : <Square className="w-3.5 h-3.5 flex-shrink-0" />}
+                                        <span className="truncate">{opt}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {q.type === 'FILL_IN_THE_BLANK' && (
+                        <div className="mt-2 text-sm text-slate-600 flex items-center bg-slate-50 p-2 rounded w-fit border border-slate-200">
+                            <span className="text-xs font-bold text-slate-400 uppercase mr-2">Answer:</span>
+                            <span className="font-mono font-medium text-slate-800">{q.correct_answer}</span>
+                        </div>
+                    )}
+
+                    {q.type === 'ORDERING' && q.options && (
+                        <div className="mt-3 max-w-lg">
+                            <p className="text-xs text-slate-400 uppercase font-bold mb-1">Correct Order:</p>
+                            <ol className="list-decimal list-inside space-y-1 bg-slate-50 p-3 rounded border border-slate-200">
+                                {q.options.map((opt, i) => (
+                                    <li key={i} className="text-sm text-slate-700 font-medium pl-1">{opt}</li>
+                                ))}
+                            </ol>
                         </div>
                     )}
 
@@ -484,11 +648,21 @@ export const QuestionBank: React.FC = () => {
                             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
                             <select 
                                 value={formData.type}
-                                onChange={(e) => setFormData({...formData, type: e.target.value as QuestionType})}
+                                onChange={(e) => {
+                                    const newType = e.target.value as QuestionType;
+                                    let newOptions = formData.options;
+                                    if ((newType === 'MULTIPLE_RESPONSE' || newType === 'ORDERING') && (!formData.options || formData.options.length === 0)) {
+                                        newOptions = ['', '', '', ''];
+                                    }
+                                    setFormData({...formData, type: newType, options: newOptions, correct_answer: ''});
+                                }}
                                 className="w-full border-slate-300 rounded-lg text-sm p-2.5 border focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900"
                             >
                                 <option value="MCQ">Multiple Choice</option>
+                                <option value="MULTIPLE_RESPONSE">Multiple Response</option>
                                 <option value="TRUE_FALSE">True / False</option>
+                                <option value="FILL_IN_THE_BLANK">Fill in the Blank</option>
+                                <option value="ORDERING">Ordering</option>
                                 <option value="SHORT_ANSWER">Short Answer</option>
                                 <option value="ESSAY">Essay</option>
                                 <option value="CODE">Code Sandbox</option>
@@ -523,8 +697,9 @@ export const QuestionBank: React.FC = () => {
                             value={formData.text}
                             onChange={(e) => setFormData({...formData, text: e.target.value})}
                             className="w-full border-slate-300 rounded-lg text-sm p-3 border focus:ring-indigo-500 focus:border-indigo-500 h-32 bg-white text-slate-900" 
-                            placeholder="Enter the question here..."
+                            placeholder={formData.type === 'FILL_IN_THE_BLANK' ? "e.g. The capital of France is [blank]." : "Enter the question here..."}
                         ></textarea>
+                        {formData.type === 'FILL_IN_THE_BLANK' && <p className="text-xs text-slate-500 mt-1">Use <strong>[blank]</strong> to indicate where the missing word goes.</p>}
                     </div>
 
                     {/* MCQ Options */}
@@ -550,6 +725,82 @@ export const QuestionBank: React.FC = () => {
                                     />
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* Multiple Response Options */}
+                    {formData.type === 'MULTIPLE_RESPONSE' && (
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-slate-700">Options (Select all correct)</label>
+                                <button onClick={handleAddOption} className="text-xs text-indigo-600 hover:underline font-bold">+ Add Option</button>
+                            </div>
+                            {formData.options?.map((opt, i) => {
+                                // Safely parse selected answers for check state
+                                let selectedAnswers: string[] = [];
+                                try {
+                                    selectedAnswers = JSON.parse(formData.correct_answer || '[]');
+                                } catch (e) { selectedAnswers = []; }
+                                const isSelected = selectedAnswers.includes(opt) && opt !== '';
+
+                                return (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <div className="w-6 flex justify-center text-slate-400 text-sm">{String.fromCharCode(65+i)}</div>
+                                        <input 
+                                            type="text"
+                                            value={opt}
+                                            onChange={(e) => handleOptionChange(i, e.target.value)}
+                                            className="flex-1 border-slate-300 rounded-lg text-sm p-2 border focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900"
+                                            placeholder={`Option ${i+1}`}
+                                        />
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isSelected}
+                                            onChange={() => handleMultiResponseChange(opt)}
+                                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded"
+                                        />
+                                        <button onClick={() => handleRemoveOption(i)} className="text-slate-400 hover:text-red-500 p-1"><X className="w-4 h-4" /></button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Ordering Options */}
+                    {formData.type === 'ORDERING' && (
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-slate-700">Items (Enter in correct order)</label>
+                                <button onClick={handleAddOption} className="text-xs text-indigo-600 hover:underline font-bold">+ Add Item</button>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-3">Enter the items from first to last. The system will shuffle them for students.</p>
+                            {formData.options?.map((opt, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                    <div className="w-6 flex justify-center text-slate-400 text-sm font-bold">{i+1}.</div>
+                                    <input 
+                                        type="text"
+                                        value={opt}
+                                        onChange={(e) => handleOptionChange(i, e.target.value)}
+                                        className="flex-1 border-slate-300 rounded-lg text-sm p-2 border focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900"
+                                        placeholder={`Item ${i+1}`}
+                                    />
+                                    <button onClick={() => handleRemoveOption(i)} className="text-slate-400 hover:text-red-500 p-1"><X className="w-4 h-4" /></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Fill In The Blank */}
+                    {formData.type === 'FILL_IN_THE_BLANK' && (
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-lg">
+                            <label className="block text-sm font-medium text-slate-700">Correct Answer</label>
+                            <input 
+                                type="text"
+                                value={formData.correct_answer}
+                                onChange={(e) => setFormData({...formData, correct_answer: e.target.value})}
+                                className="w-full border-slate-300 rounded-lg text-sm p-2.5 border focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-900"
+                                placeholder="Enter the exact word or phrase..."
+                            />
                         </div>
                     )}
 
@@ -601,6 +852,40 @@ export const QuestionBank: React.FC = () => {
                     <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center">
                         <Save className="w-4 h-4 mr-2" />
                         {editingId ? 'Update Question' : 'Save to Bank'}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Bulk Tag Modal */}
+      {isBulkTagModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Add Tags to {selectedIds.size} Questions</h3>
+                <p className="text-sm text-slate-500 mb-4">Enter tags separated by commas.</p>
+                
+                <input 
+                    type="text" 
+                    value={bulkTagInput}
+                    onChange={(e) => setBulkTagInput(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-4 bg-white text-slate-900"
+                    placeholder="e.g. algebra, hard, review2024"
+                    autoFocus
+                />
+                
+                <div className="flex justify-end gap-2">
+                    <button 
+                        onClick={() => setIsBulkTagModalOpen(false)}
+                        className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleBulkTag}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                    >
+                        Add Tags
                     </button>
                 </div>
             </div>

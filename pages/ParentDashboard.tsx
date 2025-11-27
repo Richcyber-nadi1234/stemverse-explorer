@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, TrendingUp, AlertTriangle, CheckCircle, BookOpen, Calendar, Clock, Activity, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -45,6 +46,12 @@ const mockChildren = [
 ];
 
 export const ParentDashboard: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleViewReport = (child: any) => {
+      navigate('/parent/report', { state: { student: child } });
+  };
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
       <div>
@@ -125,7 +132,10 @@ export const ParentDashboard: React.FC = () => {
                 </div>
 
                 <div className="p-4 bg-slate-50 border-t border-slate-100">
-                    <button className="w-full py-2 text-sm font-bold text-indigo-600 hover:bg-white hover:shadow-sm rounded-lg transition-all flex items-center justify-center">
+                    <button 
+                        onClick={() => handleViewReport(child)}
+                        className="w-full py-2 text-sm font-bold text-indigo-600 hover:bg-white hover:shadow-sm rounded-lg transition-all flex items-center justify-center"
+                    >
                         View Full Report <ArrowRight className="w-4 h-4 ml-2" />
                     </button>
                 </div>

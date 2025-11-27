@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Calendar, Clock, FileText, MoreVertical, Filter, PlayCircle, CheckSquare, X, Save, AlertCircle, Users, MapPin, Trash2, ChevronRight, Search, ChevronDown, AlertTriangle } from 'lucide-react';
-import { Exam, ExamSlot } from '../types';
+import { Plus, Calendar, Clock, FileText, MoreVertical, Filter, PlayCircle, CheckSquare, X, Save, AlertCircle, Users, MapPin, Trash2, ChevronRight, Search, ChevronDown, AlertTriangle, Award, MessageSquare, CheckCircle, ChevronLeft } from 'lucide-react';
+import { Exam, ExamSlot, Submission } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 // Extended Exam Interface for local usage to include scheduling fields
@@ -81,6 +81,39 @@ const mockTeachers = [
     { id: 't3', name: 'Dr. K. Osei' },
 ];
 
+// Mock Submissions Data
+const mockSubmissionsData: Submission[] = [
+    {
+        id: 'sub1',
+        student_name: 'Kwame Mensah',
+        exam_title: 'Mathematics Mid-Term',
+        submitted_at: '2023-10-15 10:30',
+        status: 'pending',
+        total_marks: 100,
+        submissionContent: 'Answers:\n1. Algebra is the study of mathematical symbols...\n2. 4x + 2 = 10 -> 4x = 8 -> x = 2\n...'
+    },
+    {
+        id: 'sub2',
+        student_name: 'Ama Osei',
+        exam_title: 'Mathematics Mid-Term',
+        submitted_at: '2023-10-15 11:15',
+        status: 'graded',
+        score: 88,
+        total_marks: 100,
+        feedback: 'Excellent work showing your steps.',
+        submissionContent: 'My answers attached...'
+    },
+    {
+        id: 'sub3',
+        student_name: 'Kofi Annan',
+        exam_title: 'Science Final Assessment',
+        submitted_at: '2023-10-20 16:00',
+        status: 'pending',
+        total_marks: 100,
+        submissionContent: 'Photosynthesis is the process by which green plants...'
+    }
+];
+
 const StatusBadge = ({ status }: { status: Exam['status'] }) => {
   const colors = {
     draft: 'bg-slate-100 text-slate-600 border-slate-200',
@@ -113,6 +146,7 @@ const DifficultyBadge = ({ difficulty }: { difficulty?: 'Easy' | 'Medium' | 'Har
 export const ExamManagement: React.FC = () => {
   const [exams, setExams] = useState<ExtendedExam[]>(mockExams);
   const [allSlots, setAllSlots] = useState<ExamSlot[]>(mockSlots);
+  const [gradingSubmissions, setGradingSubmissions] = useState<Submission[]>(mockSubmissionsData);
   const navigate = useNavigate();
   
   // Filtering State
@@ -140,6 +174,12 @@ export const ExamManagement: React.FC = () => {
       invigilator_id: ''
   });
   const [slotConflict, setSlotConflict] = useState<string | null>(null);
+
+  // Grading Drawer State
+  const [activeGradingExam, setActiveGradingExam] = useState<ExtendedExam | null>(null);
+  const [editingSubmissionId, setEditingSubmissionId] = useState<string | null>(null);
+  const [gradeScore, setGradeScore] = useState<number | ''>('');
+  const [gradeFeedback, setGradeFeedback] = useState('');
 
   // Default Form State
   const initialFormState: Partial<ExtendedExam> = {
@@ -287,6 +327,31 @@ export const ExamManagement: React.FC = () => {
       setAllSlots(prev => prev.filter(s => s.id !== slotId));
   };
 
+  // --- GRADING MANAGEMENT ---
+  const openGradingManager = (exam: ExtendedExam) => {
+      setActiveGradingExam(exam);
+      setEditingSubmissionId(null);
+  };
+
+  const handleSelectSubmission = (sub: Submission) => {
+      setEditingSubmissionId(sub.id);
+      setGradeScore(sub.score !== undefined ? sub.score : '');
+      setGradeFeedback(sub.feedback || '');
+  };
+
+  const handleSaveGrade = () => {
+      if (!editingSubmissionId) return;
+      setGradingSubmissions(prev => prev.map(s => 
+          s.id === editingSubmissionId 
+          ? { ...s, score: gradeScore === '' ? undefined : Number(gradeScore), feedback: gradeFeedback, status: 'graded' } 
+          : s
+      ));
+      setEditingSubmissionId(null);
+  };
+
+  // Filter submissions for active exam
+  const currentExamSubmissions = gradingSubmissions.filter(s => s.exam_title === activeGradingExam?.title);
+
   return (
     <div className="space-y-6 relative max-w-7xl mx-auto pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -312,7 +377,7 @@ export const ExamManagement: React.FC = () => {
                 placeholder="Search exams by title or subject..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-colors text-slate-900 placeholder-slate-500"
             />
         </div>
         
@@ -325,7 +390,7 @@ export const ExamManagement: React.FC = () => {
             <select 
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50"
+                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50"
             >
                 <option value="All">All Status</option>
                 <option value="Draft">Draft</option>
@@ -337,7 +402,7 @@ export const ExamManagement: React.FC = () => {
             <select 
                 value={filterDifficulty}
                 onChange={(e) => setFilterDifficulty(e.target.value)}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50"
+                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50"
             >
                 <option value="All">All Difficulty</option>
                 <option value="Easy">Easy</option>
@@ -348,7 +413,7 @@ export const ExamManagement: React.FC = () => {
             <select 
                 value={filterSubject}
                 onChange={(e) => setFilterSubject(e.target.value)}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50"
+                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer hover:bg-slate-50"
             >
                 <option value="All">All Subjects</option>
                 {availableSubjects.map(sub => (
@@ -411,6 +476,18 @@ export const ExamManagement: React.FC = () => {
                             {exam.duration_mins} mins
                         </span>
                         
+                        {/* Enhanced Marks Display */}
+                        <div className="flex items-center gap-2 mt-1.5 sm:mt-0">
+                            <span className="flex items-center bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-100" title="Total Marks">
+                                <Award className="w-3 h-3 mr-1" />
+                                {exam.total_marks} Marks
+                            </span>
+                            <span className="flex items-center bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-medium border border-slate-200" title="Pass Mark">
+                                <CheckCircle className="w-3 h-3 mr-1 text-slate-400" />
+                                Pass: {exam.pass_mark}
+                            </span>
+                        </div>
+                        
                         {/* Scheduled Date Display */}
                         {exam.scheduled_date ? (
                             <span className="flex items-center text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded">
@@ -453,7 +530,7 @@ export const ExamManagement: React.FC = () => {
                         </button>
                         <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-xl border border-slate-100 hidden group-hover/menu:block hover:block z-10 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                             <button onClick={() => handleEdit(exam)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">Edit Details</button>
-                            <button onClick={() => navigate('/grading')} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">Grade Submissions</button>
+                            <button onClick={() => openGradingManager(exam)} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">Grade Submissions</button>
                             <div className="h-px bg-slate-100"></div>
                             <button onClick={() => initiateDelete(exam.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">Delete</button>
                         </div>
@@ -501,7 +578,7 @@ export const ExamManagement: React.FC = () => {
                           <input 
                               value={formData.title}
                               onChange={e => setFormData({...formData, title: e.target.value})}
-                              className="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow bg-white text-slate-900"
+                              className="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow bg-white text-slate-900 placeholder-slate-500"
                               placeholder="e.g. Mid-Term Physics Assessment"
                           />
                       </div>
@@ -542,21 +619,27 @@ export const ExamManagement: React.FC = () => {
                           <div className="grid grid-cols-2 gap-4">
                               <div>
                                   <label className="block text-xs font-bold text-indigo-600 mb-1.5">Date</label>
-                                  <input 
-                                      type="date"
-                                      value={formData.scheduled_date || ''}
-                                      onChange={e => setFormData({...formData, scheduled_date: e.target.value})}
-                                      className="w-full border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 text-sm"
-                                  />
+                                  <div className="relative">
+                                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-400 pointer-events-none" />
+                                      <input 
+                                          type="date"
+                                          value={formData.scheduled_date || ''}
+                                          onChange={e => setFormData({...formData, scheduled_date: e.target.value})}
+                                          className="w-full border border-indigo-200 rounded-lg pl-10 p-2 focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 text-sm outline-none transition-shadow"
+                                      />
+                                  </div>
                               </div>
                               <div>
                                   <label className="block text-xs font-bold text-indigo-600 mb-1.5">Start Time</label>
-                                  <input 
-                                      type="time"
-                                      value={formData.scheduled_time || ''}
-                                      onChange={e => setFormData({...formData, scheduled_time: e.target.value})}
-                                      className="w-full border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 text-sm"
-                                  />
+                                  <div className="relative">
+                                      <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-indigo-400 pointer-events-none" />
+                                      <input 
+                                          type="time"
+                                          value={formData.scheduled_time || ''}
+                                          onChange={e => setFormData({...formData, scheduled_time: e.target.value})}
+                                          className="w-full border border-indigo-200 rounded-lg pl-10 p-2 focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 text-sm outline-none transition-shadow"
+                                      />
+                                  </div>
                               </div>
                           </div>
                       </div>
@@ -576,6 +659,7 @@ export const ExamManagement: React.FC = () => {
                                     <option value="Medium">Medium</option>
                                     <option value="Hard">Hard</option>
                                 </select>
+                                <p className="text-[10px] text-slate-400 mt-1">Used for filtering and student expectations.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1.5">Status</label>
@@ -723,7 +807,7 @@ export const ExamManagement: React.FC = () => {
                                       placeholder="e.g. Hall B"
                                       value={slotFormData.room}
                                       onChange={e => setSlotFormData({...slotFormData, room: e.target.value})}
-                                      className="w-full p-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900"
+                                      className="w-full p-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 placeholder-slate-500"
                                   />
                               </div>
                           </div>
@@ -805,6 +889,106 @@ export const ExamManagement: React.FC = () => {
                               ))
                           )}
                       </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* GRADING SUBMISSIONS DRAWER */}
+      {activeGradingExam && (
+          <div className="fixed inset-0 bg-slate-900/30 z-[60] backdrop-blur-sm flex justify-end">
+              <div className="w-full max-w-2xl bg-white h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+                  <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                      <div>
+                          <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                              {editingSubmissionId && (
+                                  <button onClick={() => setEditingSubmissionId(null)} className="mr-1 text-slate-400 hover:text-slate-600">
+                                      <ChevronLeft className="w-5 h-5" />
+                                  </button>
+                              )}
+                              {editingSubmissionId ? 'Grade Submission' : 'Submissions'}
+                          </h3>
+                          <p className="text-xs text-slate-500 truncate max-w-[300px]">{activeGradingExam.title}</p>
+                      </div>
+                      <button onClick={() => setActiveGradingExam(null)} className="p-2 hover:bg-slate-200 rounded-full text-slate-500">
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-0 bg-slate-50">
+                      {!editingSubmissionId ? (
+                          // LIST VIEW
+                          currentExamSubmissions.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8">
+                                  <MessageSquare className="w-12 h-12 mb-4 opacity-20" />
+                                  <p className="text-sm">No submissions to grade yet.</p>
+                              </div>
+                          ) : (
+                              <div className="divide-y divide-slate-100">
+                                  {currentExamSubmissions.map(sub => (
+                                      <div 
+                                        key={sub.id} 
+                                        onClick={() => handleSelectSubmission(sub)}
+                                        className="p-4 hover:bg-white transition-colors cursor-pointer border-l-4 border-transparent hover:border-indigo-500 bg-white mb-1"
+                                      >
+                                          <div className="flex justify-between items-start mb-1">
+                                              <span className="font-bold text-slate-800 text-sm">{sub.student_name}</span>
+                                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sub.status === 'graded' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                                  {sub.status}
+                                              </span>
+                                          </div>
+                                          <div className="flex justify-between items-center text-xs text-slate-500">
+                                              <span>Submitted: {sub.submitted_at}</span>
+                                              {sub.score !== undefined && <span className="font-bold text-indigo-600">Score: {sub.score}</span>}
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          )
+                      ) : (
+                          // GRADING FORM
+                          <div className="p-6 space-y-4">
+                              <div className="bg-white p-4 rounded-xl border border-slate-200">
+                                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Student Submission</h4>
+                                  <div className="bg-slate-50 p-3 rounded border border-slate-100 text-sm font-mono text-slate-700 whitespace-pre-wrap">
+                                      {gradingSubmissions.find(s => s.id === editingSubmissionId)?.submissionContent || "No content."}
+                                  </div>
+                              </div>
+
+                              <div>
+                                  <label className="block text-sm font-bold text-slate-700 mb-1">Score</label>
+                                  <input 
+                                      type="number" 
+                                      value={gradeScore} 
+                                      onChange={e => setGradeScore(e.target.value === '' ? '' : Number(e.target.value))}
+                                      className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-slate-700 mb-1">Feedback</label>
+                                  <textarea 
+                                      value={gradeFeedback} 
+                                      onChange={e => setGradeFeedback(e.target.value)}
+                                      className="w-full p-2 border border-slate-300 rounded-lg h-32 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                      placeholder="Enter feedback for the student..."
+                                  ></textarea>
+                              </div>
+                              <div className="flex gap-3 pt-2">
+                                  <button 
+                                    onClick={() => setEditingSubmissionId(null)} 
+                                    className="flex-1 py-2.5 border border-slate-300 text-slate-600 font-bold rounded-lg hover:bg-slate-50 transition-colors"
+                                  >
+                                      Cancel
+                                  </button>
+                                  <button 
+                                    onClick={handleSaveGrade} 
+                                    className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors"
+                                  >
+                                      Save Grade
+                                  </button>
+                              </div>
+                          </div>
+                      )}
                   </div>
               </div>
           </div>

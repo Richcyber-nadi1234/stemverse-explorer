@@ -6,18 +6,13 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Enable CORS for frontend access
+  // Enable CORS for all origins to ensure frontend connectivity in various environments
   app.enableCors({
-    origin: [
-      'http://localhost:5173', // Local Development
-      'http://localhost:4173', // Local Preview
-      process.env.FRONTEND_URL // Production URL from Env
-    ].filter((origin): origin is string => !!origin),
+    origin: true, 
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
-  // Global Validation
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     transform: true,

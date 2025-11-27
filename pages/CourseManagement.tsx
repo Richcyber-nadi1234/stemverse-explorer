@@ -1,56 +1,9 @@
 
-import React, { useState } from 'react';
-import { Search, Edit, Trash2, Users, Eye, MoreVertical, Plus, BookOpen, X, UserPlus, UserMinus, AlertCircle } from 'lucide-react';
+import React, { useState, useContext } from 'react';
+import { Search, Edit, Trash2, Users, Eye, MoreVertical, Plus, BookOpen, X, UserPlus, UserMinus, AlertCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Course, Student } from '../types';
-
-const mockInstructorCourses: Course[] = [
-  {
-    id: 'c1',
-    title: 'Introduction to Robotics with Arduino',
-    description: 'Learn the basics of building circuits, sensors, and programming robots.',
-    thumbnail: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=400',
-    instructor: 'You',
-    progress: 0,
-    total_lessons: 12,
-    completed_lessons: 0,
-    category: 'Robotics',
-    tags: ['Engineering'],
-    students_enrolled: 45,
-    rating: 4.8,
-    status: 'published'
-  },
-  {
-    id: 'c2',
-    title: 'Scratch Programming: Create Games',
-    description: 'A visual introduction to coding.',
-    thumbnail: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&q=80&w=400',
-    instructor: 'You',
-    progress: 0,
-    total_lessons: 10,
-    completed_lessons: 0,
-    category: 'Scratch',
-    tags: ['Coding'],
-    students_enrolled: 38,
-    rating: 4.9,
-    status: 'published'
-  },
-  {
-    id: 'draft1',
-    title: 'Advanced Python AI',
-    description: 'Building neural networks from scratch.',
-    thumbnail: '',
-    instructor: 'You',
-    progress: 0,
-    total_lessons: 5,
-    completed_lessons: 0,
-    category: 'Python',
-    tags: ['AI'],
-    students_enrolled: 0,
-    rating: 0,
-    status: 'draft'
-  }
-];
+import { CourseContext } from '../App';
+import { Course } from '../types';
 
 interface EnrolledStudent {
   id: string;
@@ -73,7 +26,7 @@ const mockEnrollments: Record<string, EnrolledStudent[]> = {
 
 export const CourseManagement: React.FC = () => {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<Course[]>(mockInstructorCourses);
+  const { courses, deleteCourse } = useContext(CourseContext);
   const [search, setSearch] = useState('');
 
   // Enrollment Modal State
@@ -83,7 +36,7 @@ export const CourseManagement: React.FC = () => {
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this course?')) {
-      setCourses(courses.filter(c => c.id !== id));
+      deleteCourse(id);
     }
   };
 
@@ -111,9 +64,6 @@ export const CourseManagement: React.FC = () => {
       [selectedCourse.id]: [...(prev[selectedCourse.id] || []), newStudent]
     }));
 
-    // Update course count
-    setCourses(prev => prev.map(c => c.id === selectedCourse.id ? { ...c, students_enrolled: (c.students_enrolled || 0) + 1 } : c));
-    
     setNewStudentName('');
   };
 
@@ -124,9 +74,6 @@ export const CourseManagement: React.FC = () => {
         ...prev,
         [selectedCourse.id]: prev[selectedCourse.id].filter(s => s.id !== studentId)
       }));
-
-      // Update course count
-      setCourses(prev => prev.map(c => c.id === selectedCourse.id ? { ...c, students_enrolled: Math.max(0, (c.students_enrolled || 0) - 1) } : c));
     }
   };
 
@@ -155,12 +102,14 @@ export const CourseManagement: React.FC = () => {
             value={search} 
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search your courses..." 
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 placeholder-slate-500"
           />
         </div>
-        <select className="px-4 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-600 focus:outline-none">
+        <select className="px-4 py-2 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <option value="all">All Status</option>
           <option value="published">Published</option>
+          <option value="pending_review">Pending Review</option>
+          <option value="rejected">Rejected</option>
           <option value="draft">Draft</option>
         </select>
       </div>
@@ -178,33 +127,63 @@ export const CourseManagement: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {filteredCourses.map((course) => (
-              <tr key={course.id} className="hover:bg-slate-50">
+            {filteredCourses.length === 0 ? (
+                <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                        No courses found. Click "Create Course" to start.
+                    </td>
+                </tr>
+            ) : (
+                filteredCourses.map((course) => (
+              <tr key={course.id} className="hover:bg-slate-50 group">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                    <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 overflow-hidden">
                       {course.thumbnail ? (
-                        <img src={course.thumbnail} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                        <img src={course.thumbnail} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <BookOpen className="w-5 h-5" />
                       )}
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-slate-900">{course.title}</div>
-                      <div className="text-xs text-slate-500">{course.category} • {course.total_lessons} Lessons</div>
+                      <div className="text-xs text-slate-500">{course.category || 'General'} • {course.total_lessons} Lessons</div>
+                      
+                      {/* Rejection Feedback Alert */}
+                      {course.status === 'rejected' && course.rejectionReason && (
+                          <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 flex items-start max-w-xs whitespace-normal">
+                              <AlertCircle className="w-3 h-3 mr-1 mt-0.5 shrink-0" />
+                              <span>Feedback: {course.rejectionReason}</span>
+                          </div>
+                      )}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize
-                    ${course.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}
-                  `}>
-                    {course.status}
-                  </span>
+                  {course.status === 'published' && (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-green-100 text-green-800 border border-green-200">
+                          Published
+                      </span>
+                  )}
+                  {course.status === 'pending_review' && (
+                      <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                          <Clock className="w-3 h-3 mr-1" /> In Review
+                      </span>
+                  )}
+                  {course.status === 'rejected' && (
+                      <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-bold rounded-full bg-red-100 text-red-800 border border-red-200">
+                          <AlertTriangle className="w-3 h-3 mr-1" /> Rejected
+                      </span>
+                  )}
+                  {(course.status === 'draft' || !course.status) && (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          Draft
+                      </span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                   <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" /> {course.students_enrolled || 0}
+                    <Users className="w-4 h-4" /> {course.students_enrolled || (enrollments[course.id]?.length || 0)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
@@ -212,7 +191,11 @@ export const CourseManagement: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => navigate(`/studio`)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Edit Content">
+                    <button 
+                      onClick={() => navigate('/studio', { state: { courseId: course.id } })} 
+                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" 
+                      title={course.status === 'rejected' ? "Fix & Resubmit" : "Edit Content"}
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button onClick={() => handleManageStudents(course)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Manage Enrollments">
@@ -224,7 +207,7 @@ export const CourseManagement: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+            )))}
           </tbody>
         </table>
       </div>
@@ -249,7 +232,7 @@ export const CourseManagement: React.FC = () => {
                   value={newStudentName} 
                   onChange={(e) => setNewStudentName(e.target.value)}
                   placeholder="Enter student name..." 
-                  className="flex-1 p-2 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="flex-1 p-2 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 placeholder-slate-500"
                 />
                 <button 
                   onClick={handleEnrollStudent}
