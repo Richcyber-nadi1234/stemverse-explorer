@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, PlayCircle, Clock, BookOpen, Star, X, Users, Globe, GraduationCap, ChevronRight, CheckCircle2, LayoutGrid, List, ArrowRight } from 'lucide-react';
+import { Search, PlayCircle, Clock, BookOpen, Star, X, Users, Globe, GraduationCap, ChevronRight, CheckCircle2, LayoutGrid, List, ArrowRight, Radio } from 'lucide-react';
 import { Course } from '../types';
 import { CourseContext } from '../App';
 import { CourseCard } from '../components/CourseCard';
@@ -19,6 +19,10 @@ export const LMS: React.FC = () => {
   const [selectedCourseForModal, setSelectedCourseForModal] = useState<Course | null>(null);
 
   const categories = ['All', 'Robotics', 'Python', 'Scratch', 'STEM', 'Science'];
+
+  // Simple live detection for demo: courses with an active live session
+  const courseLiveNowIds = new Set<string>(['c1']);
+  const isCourseLiveNow = (courseId: string) => courseLiveNowIds.has(courseId);
 
   // --- Filter Logic ---
   // Using global state for enrolled courses
@@ -48,7 +52,11 @@ export const LMS: React.FC = () => {
       enrollCourse(selectedCourseForModal.id);
       // Simulating API delay
       setTimeout(() => {
-        navigate(`/lms/course/${selectedCourseForModal.id}`);
+        if (isCourseLiveNow(selectedCourseForModal.id)) {
+          navigate('/live');
+        } else {
+          navigate(`/lms/course/${selectedCourseForModal.id}`);
+        }
         setSelectedCourseForModal(null);
       }, 500);
     }
@@ -113,6 +121,7 @@ export const LMS: React.FC = () => {
                         key={course.id}
                         course={course}
                         isEnrolled={true}
+                        isLiveNow={isCourseLiveNow(course.id)}
                         onClick={() => handleCourseClick(course)}
                       />
                   ))}
@@ -190,6 +199,7 @@ export const LMS: React.FC = () => {
                       key={course.id}
                       course={course}
                       isEnrolled={enrolledCourseIds.includes(course.id)}
+                      isLiveNow={isCourseLiveNow(course.id)}
                       onClick={() => handleCourseClick(course)}
                     />
                 ))}
@@ -293,12 +303,22 @@ export const LMS: React.FC = () => {
                             <p className="text-[10px] text-slate-500 font-bold uppercase">Total Price</p>
                             <p className="text-3xl font-bold text-slate-900">Free</p>
                         </div>
-                        <button 
-                            onClick={handleEnroll}
-                            className="flex-1 px-8 py-4 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-indigo-600 shadow-xl shadow-indigo-200/50 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center"
-                        >
-                            Enroll Now <ArrowRight className="w-5 h-5 ml-2" />
-                        </button>
+                        <div className="flex-1 flex items-center gap-3">
+                          {isCourseLiveNow(selectedCourseForModal.id) && (
+                            <button 
+                              onClick={() => navigate('/live')}
+                              className="px-4 py-4 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 shadow-lg flex items-center justify-center whitespace-nowrap"
+                            >
+                              <Radio className="w-5 h-5 mr-2" /> Join Live Class
+                            </button>
+                          )}
+                          <button 
+                              onClick={handleEnroll}
+                              className="flex-1 px-8 py-4 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-indigo-600 shadow-xl shadow-indigo-200/50 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center"
+                          >
+                              Enroll Now <ArrowRight className="w-5 h-5 ml-2" />
+                          </button>
+                        </div>
                     </div>
                 </div>
             </div>

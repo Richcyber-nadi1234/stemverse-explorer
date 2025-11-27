@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Default to localhost
-let API_URL = 'http://localhost:3300';
+let API_URL = 'http://localhost:3001';
 
 // Attempt to load from environment variable safely
 try {

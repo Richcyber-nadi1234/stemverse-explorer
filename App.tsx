@@ -186,18 +186,22 @@ export default function App() {
 
   // Fetch Courses from Backend
   useEffect(() => {
+    const controller = new AbortController();
     const fetchCourses = async () => {
       try {
-        const response = await api.get('/courses');
+        const response = await api.get('/courses', { signal: controller.signal as any });
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           setCourses(response.data);
         }
-      } catch (error) {
+      } catch (error: any) {
+        // Ignore canceled requests triggered by navigation/unmount
+        if (error?.code === 'ERR_CANCELED') return;
         console.warn("Backend API not available, using mock courses.");
         // Keep initial mock courses
       }
     };
     fetchCourses();
+    return () => controller.abort();
   }, []);
 
   const login = useCallback((token: string, userData: User) => {

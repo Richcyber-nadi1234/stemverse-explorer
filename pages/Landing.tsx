@@ -453,6 +453,67 @@ export const Landing: React.FC = () => {
         </div>
       </section>
 
+      {/* --- PARTNERS SECTION --- */}
+      <section id="partners" className="py-24 bg-white relative overflow-hidden z-10">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-[300px] h-[300px] bg-indigo-200 rounded-full blur-3xl opacity-40"></div>
+          <div className="absolute -bottom-24 -right-24 w-[300px] h-[300px] bg-purple-200 rounded-full blur-3xl opacity-40"></div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <span className="text-indigo-600 font-bold tracking-wider uppercase text-sm mb-2 block">Partners & Sponsors</span>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">Collaborating to accelerate STEM education</h2>
+            <p className="text-slate-600 text-lg">We partner with schools, NGOs, and companies to expand access to high-quality STEM learning experiences across Africa.</p>
+          </div>
+
+          {/* Stats */}
+          <div className="grid sm:grid-cols-3 gap-6 mb-16">
+            {[
+              { label: 'Partner Schools', value: '120+' },
+              { label: 'NGO Collaborations', value: '30+' },
+              { label: 'Corporate Sponsors', value: '20+' },
+            ].map((item, i) => (
+              <div key={i} className="p-6 rounded-2xl bg-slate-50 border border-slate-100 text-center hover:border-indigo-200 hover:shadow-lg transition-all">
+                <p className="text-3xl font-extrabold text-slate-900">{item.value}</p>
+                <p className="text-slate-500 font-medium mt-1">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Logo wall */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 mb-12">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {['EduTech Ghana','FutureLabs','ScienceTrust','TechCorp','LearnHub','BrightPath','Code4Girls','InnovateX','STEMFoundry','GreenEnergy','DataBridge','MakerWorks'].map((name) => (
+                <div key={name} className="h-20 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 font-bold tracking-wide hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors">
+                  {name}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Scrolling marquee of partner tags */}
+          <div className="overflow-hidden py-2 mb-10">
+            <div className="animate-scroll gap-4 items-center">
+              {['Ministry of Education','Accra STEM Alliance','Northern Youth STEM','Girls in Tech Africa','Open Science Network','Community Makerspaces','Tech for Good','Future Engineers','Digital Skills Fund','Solar Learning Initiative'].map((tag, i) => (
+                <span key={i} className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 mr-3 whitespace-nowrap">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Partner CTA */}
+          <div className="text-center">
+            <button
+              onClick={() => navigate('/register')}
+              className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl hover:-translate-y-1"
+            >
+              Become a Partner
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* --- CTA SECTION --- */}
       <section className="py-24 bg-slate-900 relative overflow-hidden z-10">
         <div className="absolute inset-0 opacity-20 pointer-events-none">

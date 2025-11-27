@@ -6,6 +6,7 @@ import {
   Minimize, Eraser, Trash2, Send, Download, StopCircle, Settings, BarChart2, Heart, ThumbsUp, Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client';
 
 interface ChatMessage {
   id: string;
@@ -52,6 +53,51 @@ export const LiveClassroom: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [activeReactions, setActiveReactions] = useState<Reaction[]>([]);
   const [showReactionsMenu, setShowReactionsMenu] = useState(false);
+
+  // Jitsi meeting embed
+  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const jitsiApiRef = useRef<any>(null);
+
+  useEffect(() => {
+    const existing = document.getElementById('jitsi-api-script') as HTMLScriptElement | null;
+
+    const loadJitsi = () => {
+      if (jitsiContainerRef.current && !jitsiApiRef.current) {
+        const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
+        if (typeof JitsiMeetExternalAPI !== 'function') return;
+        jitsiApiRef.current = new JitsiMeetExternalAPI('meet.jit.si', {
+          roomName: 'STEMverseDemo',
+          parentNode: jitsiContainerRef.current,
+          userInfo: { displayName: 'You' },
+          configOverwrite: {
+            disableDeepLinking: true,
+          },
+          interfaceConfigOverwrite: {
+            TOOLBAR_BUTTONS: ['microphone','camera','desktop','raisehand','chat','tileview','hangup'],
+          },
+        });
+      }
+    };
+
+    if (!existing) {
+      const s = document.createElement('script');
+      s.id = 'jitsi-api-script';
+      s.src = 'https://meet.jit.si/external_api.js';
+      s.async = true;
+      s.onload = loadJitsi;
+      document.body.appendChild(s);
+    } else {
+      existing.onload = loadJitsi;
+      if ((window as any).JitsiMeetExternalAPI) loadJitsi();
+    }
+
+    return () => {
+      try {
+        jitsiApiRef.current?.dispose?.();
+        jitsiApiRef.current = null;
+      } catch {}
+    };
+  }, []);
   
   // Mock Data
   const [participants, setParticipants] = useState<Participant[]>([
@@ -202,82 +248,107 @@ export const LiveClassroom: React.FC = () => {
     const [color, setColor] = useState('#000000');
     const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
     const [lineWidth, setLineWidth] = useState(2);
+    const socketRef = useRef<Socket | null>(null);
+    const roomName = 'STEMverseDemo';
 
     useEffect(() => {
+      const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
+      socketRef.current = io(`${API_URL}/live`, { transports: ['websocket'] });
+      socketRef.current.emit('join', { room: roomName });
+
       const canvas = canvasRef.current;
       if (canvas) {
-        // Set canvas resolution to match display size
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
-        
         const ctx = canvas.getContext('2d');
         if (ctx) {
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height); // White background
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
       }
+
+      // Incoming events
+      socketRef.current.on('draw', ({ stroke }) => {
+        const ctx = canvasRef.current?.getContext('2d');
+        if (!ctx || !stroke?.points?.length) return;
+        ctx.strokeStyle = stroke.color || '#000000';
+        ctx.lineWidth = stroke.lineWidth || 2;
+        ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+        const pts = stroke.points;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+      });
+
+      socketRef.current.on('clear', () => {
+        const ctx = canvasRef.current?.getContext('2d');
+        const c = canvasRef.current;
+        if (ctx && c) {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, c.width, c.height);
+        }
+      });
+
+      return () => {
+        try {
+          socketRef.current?.emit('leave', { room: roomName });
+          socketRef.current?.disconnect();
+        } catch {}
+      };
     }, []);
 
-    const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      setIsDrawing(true);
-      
-      const { offsetX, offsetY } = getCoordinates(e, canvas);
-      ctx.beginPath();
-      ctx.moveTo(offsetX, offsetY);
+    const getPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     };
 
-    const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-      if (!isDrawing) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+    const [currentStroke, setCurrentStroke] = useState<{ points: {x:number;y:number}[]; color: string; tool: 'pen'|'eraser'; lineWidth: number } | null>(null);
 
-      const { offsetX, offsetY } = getCoordinates(e, canvas);
-      
-      ctx.lineWidth = tool === 'eraser' ? 20 : lineWidth;
-      ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
-      
-      ctx.lineTo(offsetX, offsetY);
+    const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+      setIsDrawing(true);
+      const pos = getPos(e);
+      const stroke = { points: [pos], color, tool, lineWidth };
+      setCurrentStroke(stroke);
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.lineWidth;
+      ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (!isDrawing || !currentStroke) return;
+      const pos = getPos(e);
+      currentStroke.points.push(pos);
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+      ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
     };
 
-    const stopDrawing = () => {
+    const handleMouseUp = () => {
       setIsDrawing(false);
-    };
-
-    const getCoordinates = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
-        // Handle both mouse and touch
-        if ((e as React.TouchEvent).touches && (e as React.TouchEvent).touches.length > 0) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                offsetX: (e as React.TouchEvent).touches[0].clientX - rect.left,
-                offsetY: (e as React.TouchEvent).touches[0].clientY - rect.top
-            };
-        } else {
-            return {
-                offsetX: (e as React.MouseEvent).nativeEvent.offsetX,
-                offsetY: (e as React.MouseEvent).nativeEvent.offsetY
-            };
-        }
+      if (currentStroke && socketRef.current) {
+        socketRef.current.emit('draw', { room: roomName, stroke: currentStroke });
+      }
+      setCurrentStroke(null);
     };
 
     const clearBoard = () => {
-        const canvas = canvasRef.current;
-        if(canvas) {
-            const ctx = canvas.getContext('2d');
-            if(ctx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-        }
+      const c = canvasRef.current;
+      const ctx = c?.getContext('2d');
+      if (c && ctx) {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+      }
+      socketRef.current?.emit('clear', { room: roomName });
     };
 
     return (
@@ -337,13 +408,10 @@ export const LiveClassroom: React.FC = () => {
          <div className="flex-1 bg-white relative touch-none">
              <canvas 
                 ref={canvasRef}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
                 className="absolute inset-0 w-full h-full cursor-crosshair"
              />
          </div>
@@ -431,23 +499,15 @@ export const LiveClassroom: React.FC = () => {
                 ) : viewMode === 'speaker' ? (
                     <div className="flex-1 flex flex-col gap-2 sm:gap-4">
                         <div className="flex-1">
-                             <VideoTile p={participants[0]} size="large" />
+                             <div ref={jitsiContainerRef} className="w-full h-full rounded-2xl border border-slate-700 overflow-hidden bg-black" />
                         </div>
-                        <div className="h-24 sm:h-32 flex gap-2 sm:gap-4 overflow-x-auto pb-2 px-1">
-                             {participants.slice(1).map(p => (
-                                 <div key={p.id} className="w-32 sm:w-48 shrink-0">
-                                     <VideoTile p={p} />
-                                 </div>
-                             ))}
-                        </div>
+                        {/* Participant strip removed in favor of Jitsi tile view */}
                     </div>
                 ) : (
                     // Gallery Grid
                     <div className="h-full overflow-y-auto pr-1 custom-scrollbar">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 auto-rows-fr content-center min-h-full">
-                            {participants.map(p => (
-                                <VideoTile key={p.id} p={p} />
-                            ))}
+                        <div className="w-full h-full">
+                            <div ref={jitsiContainerRef} className="w-full h-full rounded-2xl border border-slate-700 overflow-hidden bg-black" />
                         </div>
                     </div>
                 )}

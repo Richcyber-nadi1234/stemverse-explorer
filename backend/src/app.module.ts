@@ -6,6 +6,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './modules/users/users.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { LiveModule } from './modules/live/live.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -18,6 +19,7 @@ import { AppController } from './app.controller';
     UsersModule,
     CoursesModule,
     AiModule,
+    LiveModule,
   ],
   controllers: [AppController],
   providers: [],

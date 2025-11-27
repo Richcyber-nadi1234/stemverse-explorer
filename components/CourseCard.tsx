@@ -1,15 +1,16 @@
 
 import React from 'react';
-import { PlayCircle, Star, Users, ChevronRight, Play, BookOpen, Clock, Check } from 'lucide-react';
+import { PlayCircle, Star, Users, ChevronRight, Play, BookOpen, Clock, Check, Radio } from 'lucide-react';
 import { Course } from '../types';
 
 interface CourseCardProps {
   course: Course;
   isEnrolled: boolean;
+  isLiveNow?: boolean;
   onClick: () => void;
 }
 
-export const CourseCard: React.FC<CourseCardProps> = ({ course, isEnrolled, onClick }) => {
+export const CourseCard: React.FC<CourseCardProps> = ({ course, isEnrolled, isLiveNow = false, onClick }) => {
   const progress = course.progress || 0;
   const isCompleted = progress === 100;
   
@@ -32,6 +33,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course, isEnrolled, onCl
              <div className="absolute top-3 right-3 bg-indigo-600 text-white p-1.5 rounded-full shadow-lg animate-in zoom-in duration-300">
                 <Play className="w-4 h-4 fill-current ml-0.5" />
              </div>
+          )}
+
+          {!isEnrolled && isLiveNow && (
+            <div className="absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded-lg shadow-lg flex items-center gap-1 text-[10px] font-bold">
+              <Radio className="w-3 h-3" /> Live Now
+            </div>
           )}
       </div>
 

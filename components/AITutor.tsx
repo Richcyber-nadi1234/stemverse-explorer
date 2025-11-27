@@ -127,14 +127,6 @@ export const AITutor: React.FC = () => {
     setIsTyping(true);
 
     try {
-      // Model Selection: Flash Lite for speed, Pro for reasoning
-      const modelName = useFastModel ? 'gemini-flash-lite-latest' : 'gemini-3-pro-preview';
-      
-      if (!ai) {
-        const responseText = "AI is disabled. Set GEMINI_API_KEY in .env to enable Newton.";
-        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: responseText, sender: 'bot' }]);
-        return;
-      }
       const { data } = await api.post('/ai/chat', { text: userText, fast: useFastModel, systemInstruction: SYSTEM_INSTRUCTION });
       const responseText = data?.text || "I couldn't generate a response.";
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: responseText, sender: 'bot' }]);
