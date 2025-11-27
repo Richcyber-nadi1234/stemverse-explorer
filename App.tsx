@@ -27,7 +27,7 @@ import { StudentReport } from './pages/StudentReport';
 import { UserManagement } from './pages/UserManagement';
 import { ParentDashboard } from './pages/ParentDashboard';
 import { CalendarPage } from './pages/Calendar';
-import { ContentReview } from './pages/ContentReview'; // Import ContentReview
+import { ContentReview } from './pages/ContentReview';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole, User, Course } from './types';
 import { StudentDashboard } from './pages/StudentDashboard';
@@ -77,6 +77,7 @@ export const CourseContext = React.createContext<{
   enrollCourse: () => {},
 });
 
+// Mock Initial Courses (Fallback)
 const initialCourses: Course[] = [
   {
     id: 'c1',
@@ -168,12 +169,10 @@ export default function App() {
                      setUser(null);
                  }
              } else {
-                 console.error("Session expired or invalid");
                  localStorage.removeItem('stemverse_token');
                  setUser(null);
              }
           } else {
-             console.error("Session expired or invalid");
              localStorage.removeItem('stemverse_token');
              localStorage.removeItem('stemverse_user');
              setUser(null);
@@ -183,6 +182,22 @@ export default function App() {
       setIsLoading(false);
     };
     checkAuth();
+  }, []);
+
+  // Fetch Courses from Backend
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await api.get('/courses');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setCourses(response.data);
+        }
+      } catch (error) {
+        console.warn("Backend API not available, using mock courses.");
+        // Keep initial mock courses
+      }
+    };
+    fetchCourses();
   }, []);
 
   const login = useCallback((token: string, userData: User) => {
@@ -216,25 +231,47 @@ export default function App() {
   }, []);
 
   // Course Actions
-  const addCourse = (course: Course) => {
-    setCourses(prev => [course, ...prev]);
+  const addCourse = async (course: Course) => {
+    try {
+      // Optimistic update
+      const tempId = course.id;
+      setCourses(prev => [course, ...prev]);
+      
+      const response = await api.post('/courses', course);
+      // Replace optimistic course with real one from DB (to get real ID)
+      setCourses(prev => prev.map(c => c.id === tempId ? response.data : c));
+    } catch (error) {
+      console.error("Failed to sync course creation to backend");
+      // Fallback already handled by optimistic update for demo feel
+    }
   };
 
-  const updateCourse = (updatedCourse: Course) => {
+  const updateCourse = async (updatedCourse: Course) => {
     setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+    try {
+      await api.put(`/courses/${updatedCourse.id}`, updatedCourse);
+    } catch (error) {
+      console.warn("Backend update failed");
+    }
   };
 
-  const deleteCourse = (id: string) => {
+  const deleteCourse = async (id: string) => {
     setCourses(prev => prev.filter(c => c.id !== id));
+    try {
+      await api.delete(`/courses/${id}`);
+    } catch (error) {
+      console.warn("Backend delete failed");
+    }
   };
 
   const enrollCourse = (courseId: string) => {
       if (!enrolledCourseIds.includes(courseId)) {
           setEnrolledCourseIds(prev => [...prev, courseId]);
-          // Update student count on the course itself
+          // Update student count locally
           const course = courses.find(c => c.id === courseId);
           if (course) {
-              updateCourse({ ...course, students_enrolled: (course.students_enrolled || 0) + 1 });
+              const updated = { ...course, students_enrolled: (course.students_enrolled || 0) + 1 };
+              updateCourse(updated);
           }
           showToast("Enrolled successfully!", 'success');
       }

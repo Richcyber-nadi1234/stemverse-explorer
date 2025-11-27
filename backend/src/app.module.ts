@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AiModule } from './modules/ai/ai.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './modules/users/users.module';
+import { CoursesModule } from './modules/courses/courses.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    CoursesModule,
     AiModule,
   ],
   controllers: [],
