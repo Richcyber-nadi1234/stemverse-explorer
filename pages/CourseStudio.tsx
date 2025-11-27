@@ -1,4 +1,3 @@
-
 import React, { useState, useContext, useEffect } from 'react';
 import { Save, Plus, Trash, FileText, Video, GripVertical, Sparkles, Bot, X, Loader2, Check, Calendar, Award, AlertCircle, Image as ImageIcon, Film, Wand2, Play, Link as LinkIcon, Scissors, ListPlus, Upload, LayoutTemplate, Send } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -153,7 +152,7 @@ export const CourseStudio: React.FC = () => {
     }
     
     // Preserve existing course fields if editing, override with form data
-    const existingCourse = editingId ? courses.find(c => c.id === editingId) : {};
+    const existingCourse: Partial<Course> = editingId ? (courses.find(c => c.id === editingId) || {}) : {};
 
     const courseData: Course = {
         ...existingCourse, // Spread existing properties to keep enrolled students, rating etc.

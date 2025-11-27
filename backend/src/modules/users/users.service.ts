@@ -1,3 +1,4 @@
+
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
@@ -23,21 +24,24 @@ export class UsersService {
     const salt = await bcrypt.genSalt();
     const passwordHash = await bcrypt.hash(data.password, salt);
 
+    // Using 'any' casting for prisma to avoid TS errors before generation
     return (this.prisma as any).user.create({
       data: {
         email: data.email,
-        passwordHash: passwordHash,
+        passwordHash: passwordHash, // Store the HASH, not the plain password
         first_name: data.first_name,
         last_name: data.last_name,
         roles: data.roles || ['student'],
         school_id: data.school_id,
-        bio: data.bio,
+        bio: data.bio || '',
         interests: data.interests || [],
         avatarConfig: data.avatarConfig || {},
         active: data.active ?? false,
         verificationStatus: data.verificationStatus || 'unverified',
         verificationDocuments: data.verificationDocuments || [],
         customPermissions: data.customPermissions || [],
+        
+        // Default Gamification stats
         xp: 0,
         level: 1,
         coins: 0,

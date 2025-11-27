@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useContext, useEffect } from 'react';
 import { Plus, MoreVertical, Calendar, CheckCircle2, Circle, Clock, AlertCircle, Search, Filter, X, Save, Trash2, User, ArrowUpRight, SortAsc } from 'lucide-react';
 import { ProjectTask } from '../types';
@@ -61,7 +60,7 @@ export const ProjectBoard: React.FC = () => {
                 if (timeDiff > 0 && timeDiff < oneDayMs && isAssignedToUser) {
                     // Avoid spamming multiple toasts
                     if (!alertShown) {
-                        showToast(`Reminder: "${task.title}" is due in less than 24 hours!`, 'warning');
+                        showToast(`Reminder: "${task.title}" is due in less than 24 hours!`, 'info');
                         alertShown = true;
                     }
                 }
