@@ -29,23 +29,16 @@ export class UsersService {
       data: {
         email: data.email,
         passwordHash: passwordHash, // Store the HASH, not the plain password
-        first_name: data.first_name,
-        last_name: data.last_name,
-        roles: data.roles || ['student'],
-        school_id: data.school_id,
+        firstName: data.firstName ?? data.first_name ?? null,
+        lastName: data.lastName ?? data.last_name ?? null,
         bio: data.bio || '',
-        interests: data.interests || [],
+        roles: (data.roles || ['STUDENT']).map((r: string) => String(r).toUpperCase()),
         avatarConfig: data.avatarConfig || {},
-        active: data.active ?? false,
-        verificationStatus: data.verificationStatus || 'unverified',
-        verificationDocuments: data.verificationDocuments || [],
-        customPermissions: data.customPermissions || [],
-        
-        // Default Gamification stats
-        xp: 0,
-        level: 1,
-        coins: 0,
-        streak: 0,
+        // Gamification defaults aligned with schema
+        xp: data.xp ?? 0,
+        level: data.level ?? 1,
+        stars: data.stars ?? 0,
+        badges: data.badges ?? [],
       },
     });
   }

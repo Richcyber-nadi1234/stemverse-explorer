@@ -7,7 +7,8 @@ import {
   BarChart, Bar, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   PieChart, Pie, Cell 
 } from 'recharts';
-import { ToastContext, AuthContext } from '../App';
+import { ToastContext } from '../contexts/ToastContext';
+import { AuthContext } from '../contexts/AuthContext';
 import { UserRole } from '../types';
 
 // --- MOCK DATA ---

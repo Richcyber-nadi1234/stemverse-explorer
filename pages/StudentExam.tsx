@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Timer, ChevronRight, ChevronLeft, Flag, CheckCircle, AlertTriangle, Bot, List, LayoutGrid, X, Star, Trophy, Zap } from 'lucide-react';
 import { Question } from '../types';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 
 const mockQuestions: Question[] = [
   { id: 'q1', text: 'What is the value of Pi?', type: 'MCQ', options: ['3.12', '3.14', '3.16'], marks: 2, difficulty: 'Easy', subject: 'Math', tags: [], grade_level: 5 },
@@ -23,7 +23,7 @@ export const StudentExam: React.FC = () => {
   const [isGridOpen, setIsGridOpen] = useState(false);
   
   // Result state for display
-  const [earnedCoins, setEarnedCoins] = useState(0);
+  const [earnedStars, setEarnedStars] = useState(0);
   const [earnedXP, setEarnedXP] = useState(0);
   const [examScore, setExamScore] = useState(0);
 
@@ -53,19 +53,19 @@ export const StudentExam: React.FC = () => {
     setExamScore(mockScore);
 
     // Calculate Rewards
-    const baseCoins = 50;
+    const baseStars = 50;
     const highScoreBonus = mockScore >= 80 ? 50 : 0;
     const perfectBonus = mockScore === 100 ? 50 : 0;
     
-    const totalCoins = baseCoins + highScoreBonus + perfectBonus;
+    const totalStars = baseStars + highScoreBonus + perfectBonus;
     const totalXP = 200 + (mockScore > 80 ? 100 : 0);
 
-    setEarnedCoins(totalCoins);
+    setEarnedStars(totalStars);
     setEarnedXP(totalXP);
 
     if (user) {
         updateUser({
-            coins: (user.coins || 0) + totalCoins,
+            coins: (user.coins || 0) + totalStars,
             xp: (user.xp || 0) + totalXP
         });
     }
@@ -102,11 +102,11 @@ export const StudentExam: React.FC = () => {
           
           <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 transform transition-all hover:scale-105">
-                  <p className="text-yellow-700 font-bold text-xs uppercase mb-1">Coins Earned</p>
+                  <p className="text-yellow-700 font-bold text-xs uppercase mb-1">Stars Earned</p>
                   <div className="flex items-center justify-center gap-2 text-xl font-bold text-slate-900">
-                      <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" /> +{earnedCoins}
+                      <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" /> +{earnedStars}
                   </div>
-                  {earnedCoins > 50 && <p className="text-[10px] text-yellow-600 font-bold mt-1">High Score Bonus!</p>}
+                  {earnedStars > 50 && <p className="text-[10px] text-yellow-600 font-bold mt-1">High Score Bonus!</p>}
               </div>
               <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 transform transition-all hover:scale-105">
                   <p className="text-indigo-700 font-bold text-xs uppercase mb-1">XP Gained</p>

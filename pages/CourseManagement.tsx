@@ -2,7 +2,7 @@
 import React, { useState, useContext } from 'react';
 import { Search, Edit, Trash2, Users, Eye, MoreVertical, Plus, BookOpen, X, UserPlus, UserMinus, AlertCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { CourseContext } from '../App';
+import { CourseContext } from '../contexts/CourseContext';
 import { Course } from '../types';
 
 interface EnrolledStudent {

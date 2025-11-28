@@ -30,52 +30,14 @@ import { CalendarPage } from './pages/Calendar';
 import { ContentReview } from './pages/ContentReview';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole, User, Course } from './types';
+import { AuthContext } from './contexts/AuthContext';
+import { ToastContext, ToastMessage } from './contexts/ToastContext';
+import { CourseContext } from './contexts/CourseContext';
 import { StudentDashboard } from './pages/StudentDashboard';
 import api from './services/api';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
-// Toast Types
-export interface ToastMessage {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info';
-}
-
-export const ToastContext = React.createContext<{
-  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-}>({ showToast: () => {} });
-
-// Enhanced Auth Context
-export const AuthContext = React.createContext<{
-  user: User | null;
-  isLoading: boolean;
-  login: (token: string, userData: User) => void;
-  logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
-}>({
-  user: null,
-  isLoading: true,
-  login: () => {},
-  logout: () => {},
-  updateUser: () => {},
-});
-
-// Course Context
-export const CourseContext = React.createContext<{
-  courses: Course[];
-  enrolledCourseIds: string[];
-  addCourse: (course: Course) => void;
-  updateCourse: (course: Course) => void;
-  deleteCourse: (id: string) => void;
-  enrollCourse: (courseId: string) => void;
-}>({
-  courses: [],
-  enrolledCourseIds: [],
-  addCourse: () => {},
-  updateCourse: () => {},
-  deleteCourse: () => {},
-  enrollCourse: () => {},
-});
+// Contexts moved to dedicated modules to improve HMR stability
 
 // Mock Initial Courses (Fallback)
 const initialCourses: Course[] = [
@@ -156,13 +118,20 @@ export default function App() {
         try {
           // Verify token and get fresh user data from backend
           const response = await api.get('/users/profile');
-          setUser(response.data);
+          setUser(normalizeUser(response.data));
         } catch (error: any) {
           if (!error.response || error.code === 'ERR_NETWORK') {
              const cachedUser = localStorage.getItem('stemverse_user');
              if (cachedUser) {
                  try {
-                     setUser(JSON.parse(cachedUser));
+                     try {
+                       const parsed = JSON.parse(cachedUser);
+                       setUser(normalizeUser(parsed));
+                     } catch (e2) {
+                       localStorage.removeItem('stemverse_token');
+                       localStorage.removeItem('stemverse_user');
+                       setUser(null);
+                     }
                  } catch (e) {
                      localStorage.removeItem('stemverse_token');
                      localStorage.removeItem('stemverse_user');
@@ -207,7 +176,7 @@ export default function App() {
   const login = useCallback((token: string, userData: User) => {
     localStorage.setItem('stemverse_token', token);
     localStorage.setItem('stemverse_user', JSON.stringify(userData));
-    setUser(userData);
+    setUser(normalizeUser(userData));
   }, []);
 
   const logout = useCallback(() => {
@@ -219,7 +188,7 @@ export default function App() {
   const updateUser = useCallback((updates: Partial<User>) => {
     setUser(prev => {
       if (!prev) return null;
-      const updated = { ...prev, ...updates };
+      const updated = { ...prev, ...updates } as User;
       localStorage.setItem('stemverse_user', JSON.stringify(updated));
       return updated;
     });
@@ -385,3 +354,26 @@ export default function App() {
     </AuthContext.Provider>
   );
 }
+  const normalizeUser = (raw: any): User => {
+    return {
+      id: raw.id,
+      first_name: raw.first_name ?? raw.firstName ?? '',
+      last_name: raw.last_name ?? raw.lastName ?? '',
+      email: raw.email,
+      roles: Array.isArray(raw.roles) ? raw.roles : [],
+      school_id: raw.school_id,
+      bio: raw.bio,
+      interests: raw.interests,
+      avatarConfig: raw.avatarConfig,
+      streak: raw.streak,
+      lastLoginDate: raw.lastLoginDate,
+      xp: raw.xp,
+      level: raw.level,
+      coins: raw.coins ?? raw.stars ?? 0,
+      badges: raw.badges,
+      active: raw.active !== false,
+      verificationDocuments: raw.verificationDocuments,
+      verificationStatus: raw.verificationStatus,
+      customPermissions: raw.customPermissions,
+    };
+  };

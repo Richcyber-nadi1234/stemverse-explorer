@@ -1,9 +1,11 @@
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Play, CheckCircle, FileText, ChevronLeft, ChevronRight, Lock, MessageCircle, Award, Layout, Upload, Paperclip, AlertCircle, Video, Circle, Clock, Radio, ExternalLink, Sparkles, Bot, Star, Trophy, Info } from 'lucide-react';
 import { Lesson } from '../types';
-import { AuthContext, CourseContext, ToastContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
+import { CourseContext } from '../contexts/CourseContext';
+import { ToastContext } from '../contexts/ToastContext';
 
 const mockLessons: Lesson[] = [
   // Robotics Course
@@ -44,6 +46,9 @@ export const CoursePlayer: React.FC = () => {
   // Rewards UI State
   const [showCoinReward, setShowCoinReward] = useState(false);
   const [showCompletionBonus, setShowCompletionBonus] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [confettiOn, setConfettiOn] = useState(false);
+  const [confettiPieces, setConfettiPieces] = useState<Array<{ id: number; left: string; color: string; size: number; rotate: number; duration: number; delay: number }>>([]);
   
   // Local tracking of completed lessons for immediate UI feedback before context sync
   const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
@@ -58,6 +63,102 @@ export const CoursePlayer: React.FC = () => {
           setCompletedLessonIds(initialCompleted);
       }
   }, [courseId]);
+
+  function ensureAudioCtx() {
+      if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      return audioCtxRef.current;
+  }
+
+  async function resumeIfSuspended() {
+      const ctx = ensureAudioCtx();
+      if (ctx.state === 'suspended') {
+          try { await ctx.resume(); } catch (e) { /* noop */ }
+      }
+      return ctx;
+  }
+
+  async function playCoinSound() {
+      const ctx = await resumeIfSuspended();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1000, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.8, ctx.currentTime + 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.42);
+  }
+
+  async function playFanfare() {
+      const ctx = await resumeIfSuspended();
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.4);
+      g.connect(ctx.destination);
+
+      const notes = [440, 660, 880];
+      notes.forEach((freq, i) => {
+          const o = ctx.createOscillator();
+          o.type = 'triangle';
+          o.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.2);
+          o.connect(g);
+          o.start(ctx.currentTime + i * 0.2);
+          o.stop(ctx.currentTime + i * 0.2 + 0.45);
+      });
+  }
+
+  function triggerConfetti() {
+      const count = 120;
+      const colors = ['#f87171', '#34d399', '#60a5fa', '#fbbf24', '#a78bfa', '#fb7185'];
+      const pieces = Array.from({ length: count }).map((_, idx) => {
+          const left = `${Math.random() * 100}%`;
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          const size = Math.floor(Math.random() * 8) + 6;
+          const rotate = Math.floor(Math.random() * 360);
+          const duration = Math.random() * 2 + 3.5;
+          const delay = Math.random() * 0.5;
+          return { id: idx, left, color, size, rotate, duration, delay };
+      });
+      setConfettiPieces(pieces);
+      setConfettiOn(true);
+      window.setTimeout(() => {
+          setConfettiOn(false);
+          setConfettiPieces([]);
+      }, 5000);
+  }
+
+  useEffect(() => {
+      if (showCoinReward) {
+          playCoinSound();
+      }
+  }, [showCoinReward]);
+
+  useEffect(() => {
+      if (showCompletionBonus) {
+          playFanfare();
+          triggerConfetti();
+      }
+  }, [showCompletionBonus]);
+
+  // Ensure audio context is resumed after any user interaction
+  useEffect(() => {
+      const resume = () => { resumeIfSuspended(); };
+      window.addEventListener('pointerdown', resume, { once: true });
+      window.addEventListener('keydown', resume, { once: true });
+      window.addEventListener('touchstart', resume, { once: true });
+      return () => {
+          window.removeEventListener('pointerdown', resume);
+          window.removeEventListener('keydown', resume);
+          window.removeEventListener('touchstart', resume);
+      };
+  }, []);
 
   if (!activeCourse) {
       return <div className="p-8 text-center text-white">Course not found.</div>;
@@ -94,11 +195,11 @@ export const CoursePlayer: React.FC = () => {
           // Check Course Completion
           const isCourseComplete = newCompleted.size === displayLessons.length;
           
-          let coinsAwarded = 50;
+          let starsAwarded = 50;
           let xpAwarded = 100;
 
           if (isCourseComplete) {
-              coinsAwarded += 500; // Bonus
+              starsAwarded += 500; // Bonus
               xpAwarded += 1000;   // Bonus
               setShowCompletionBonus(true);
           } else {
@@ -109,7 +210,7 @@ export const CoursePlayer: React.FC = () => {
           // Award Coins & XP
           if (user) {
               updateUser({
-                  coins: (user.coins || 0) + coinsAwarded,
+                  coins: (user.coins || 0) + starsAwarded,
                   xp: (user.xp || 0) + xpAwarded
               });
           }
@@ -134,13 +235,47 @@ export const CoursePlayer: React.FC = () => {
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col lg:flex-row bg-slate-900 text-white -m-4 md:-m-8 relative">
+      {confettiOn && (
+        <div className="absolute inset-0 pointer-events-none z-[70]">
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            {confettiPieces.map((p) => (
+              <div
+                key={p.id}
+                style={{
+                  position: 'absolute',
+                  top: '-12px',
+                  left: p.left,
+                  width: p.size,
+                  height: p.size,
+                  background: p.color,
+                  transform: `rotate(${p.rotate}deg)`,
+                  borderRadius: 2,
+                  animation: `confetti-fall ${p.duration}s linear ${p.delay}s forwards, confetti-tilt ${p.duration}s ease-in-out ${p.delay}s`,
+                  opacity: 0.95,
+                }}
+              />
+            ))}
+          </div>
+          <style>{`
+            @keyframes confetti-fall {
+              0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(110vh) rotate(360deg); opacity: 0.9; }
+            }
+            @keyframes confetti-tilt {
+              0% { filter: brightness(1); }
+              50% { filter: brightness(1.2); }
+              100% { filter: brightness(1); }
+            }
+          `}</style>
+        </div>
+      )}
       
-      {/* Coin Reward Animation (Lesson) */}
+      {/* Star Reward Animation (Lesson) */}
       {showCoinReward && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-in zoom-in fade-in duration-500 pointer-events-none">
               <div className="bg-yellow-400 text-yellow-900 px-8 py-6 rounded-3xl shadow-2xl flex flex-col items-center border-4 border-yellow-200">
                   <Star className="w-16 h-16 fill-yellow-100 animate-spin-slow mb-2" />
-                  <h3 className="text-3xl font-extrabold">+50 Coins</h3>
+                  <h3 className="text-3xl font-extrabold">+50 Stars</h3>
                   <p className="font-bold text-sm">+100 XP</p>
               </div>
           </div>
@@ -166,7 +301,7 @@ export const CoursePlayer: React.FC = () => {
                       <div className="flex justify-center gap-8">
                           <div className="flex flex-col items-center">
                               <span className="text-3xl font-bold text-yellow-400 flex items-center gap-2"><Star className="fill-yellow-400 w-6 h-6" /> +500</span>
-                              <span className="text-xs font-bold mt-1">Coins</span>
+                              <span className="text-xs font-bold mt-1">Stars</span>
                           </div>
                           <div className="w-px bg-slate-700"></div>
                           <div className="flex flex-col items-center">
@@ -187,7 +322,7 @@ export const CoursePlayer: React.FC = () => {
                         onClick={() => navigate('/marketplace')}
                         className="flex-1 py-3.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg"
                       >
-                          Spend Coins
+                          Spend Stars
                       </button>
                   </div>
               </div>

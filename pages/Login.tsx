@@ -1,7 +1,7 @@
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 import { Lock, Mail, ArrowRight, AlertCircle, Info } from 'lucide-react';
 import { UserRole, User } from '../types';
 import { Logo } from '../components/Logo';
@@ -59,6 +59,58 @@ export const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [usingMock, setUsingMock] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const ensureAudioCtx = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioCtxRef.current;
+  };
+
+  const resumeIfSuspended = async () => {
+    const ctx = ensureAudioCtx();
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch (e) {}
+    }
+    return ctx;
+  };
+
+  const playSuccessChime = async () => {
+    const ctx = await resumeIfSuspended();
+    const master = ctx.createGain();
+    master.gain.value = 0.001;
+    master.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.9);
+    master.connect(ctx.destination);
+
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    notes.forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.7, ctx.currentTime + i * 0.12 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.12 + 0.35);
+      o.connect(g);
+      g.connect(master);
+      o.start(ctx.currentTime + i * 0.12);
+      o.stop(ctx.currentTime + i * 0.12 + 0.38);
+    });
+  };
+
+  React.useEffect(() => {
+    const resume = () => { resumeIfSuspended(); };
+    window.addEventListener('pointerdown', resume, { once: true });
+    window.addEventListener('keydown', resume, { once: true });
+    window.addEventListener('touchstart', resume, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('keydown', resume);
+      window.removeEventListener('touchstart', resume);
+    };
+  }, []);
 
   // Redirect if already logged in (or just logged in via context update)
   React.useEffect(() => {
@@ -99,13 +151,14 @@ export const Login: React.FC = () => {
       const response = await api.post('/auth/login', { email, password });
       const { access_token, user: userData } = response.data;
 
-      if (!userData.active) {
+      if (userData.active === false) {
           setIsLoading(false);
           setError("Account pending verification. Please check your email.");
           return;
       }
 
       // Login updates the context, which triggers the useEffect above to handle redirect
+      playSuccessChime();
       login(access_token, userData);
 
     } catch (err: any) {
@@ -141,7 +194,7 @@ export const Login: React.FC = () => {
                    xp: 0,
                    coins: 100,
                    streak: 0
-               };
+               } as User;
           }
 
           if (mockUser && (password === 'password' || password === '123456')) {
@@ -149,6 +202,7 @@ export const Login: React.FC = () => {
               setUsingMock(true);
               // Simulate network delay
               setTimeout(() => {
+                  playSuccessChime();
                   login('mock-jwt-token', mockUser);
                   // Context update triggers useEffect redirect
               }, 800);

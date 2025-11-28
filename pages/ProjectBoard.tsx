@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useContext, useEffect } from 'react';
 import { Plus, MoreVertical, Calendar, CheckCircle2, Circle, Clock, AlertCircle, Search, Filter, X, Save, Trash2, User, ArrowUpRight, SortAsc } from 'lucide-react';
 import { ProjectTask } from '../types';
-import { AuthContext, ToastContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
+import { ToastContext } from '../contexts/ToastContext';
 
 const mockStudents = [
   { id: 's1', name: 'Kwame Mensah' },

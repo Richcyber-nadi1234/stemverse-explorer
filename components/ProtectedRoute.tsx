@@ -1,7 +1,7 @@
 
 import React, { useContext } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 import { UserRole } from '../types';
 
 interface ProtectedRouteProps {

@@ -3,7 +3,9 @@ import React, { useState, useContext } from 'react';
 import { Search, Star, ShoppingCart, Filter, User, BookOpen, Video, Check, Plus, DollarSign, Package, ArrowLeft, Wallet, Tag, X, TrendingUp, Eye, ShoppingBag, FileText, Calendar, Trash2, Edit, Download, ExternalLink, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import { MarketplaceItem } from '../types';
-import { AuthContext, ToastContext, CourseContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
+import { ToastContext } from '../contexts/ToastContext';
+import { CourseContext } from '../contexts/CourseContext';
 import { useNavigate } from 'react-router-dom';
 
 const initialItems: MarketplaceItem[] = [
@@ -100,7 +102,7 @@ export const Marketplace: React.FC = () => {
     }
     
     if (currentBalance >= item.price) {
-      if (window.confirm(`Purchase "${item.title}" for 🪙${item.price}?`)) {
+      if (window.confirm(`Purchase "${item.title}" for ⭐${item.price}?`)) {
         updateUser({ coins: currentBalance - item.price });
         setPurchasedItems(prev => [item, ...prev]);
         
@@ -112,7 +114,7 @@ export const Marketplace: React.FC = () => {
         showToast('Purchase successful!', 'success');
       }
     } else {
-      showToast(`Insufficient funds! You need 🪙${item.price - currentBalance} more coins.`, 'error');
+      showToast(`Insufficient funds! You need ⭐${item.price - currentBalance} more coins.`, 'error');
     }
   };
 
@@ -233,13 +235,13 @@ export const Marketplace: React.FC = () => {
                   )}
               </div>
               
-              <div className="flex flex-col items-end gap-4">
-                  <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/20 min-w-[160px]">
-                      <p className="text-xs uppercase tracking-wider font-bold text-indigo-200 mb-1">Your Balance</p>
-                      <p className="text-3xl font-bold flex items-center gap-2">
-                          <span className="text-yellow-400 text-2xl">🪙</span> {currentBalance}
-                      </p>
-                  </div>
+          <div className="flex flex-col items-end gap-4">
+              <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/20 min-w-[160px]">
+                  <p className="text-xs uppercase tracking-wider font-bold text-indigo-200 mb-1">Your Balance</p>
+                  <p className="text-3xl font-bold flex items-center gap-2">
+                      <span className="text-yellow-400 text-2xl">⭐</span> {currentBalance}
+                  </p>
+              </div>
                   
                   {/* View Switcher Navigation */}
                   <div className="flex gap-3">
@@ -340,7 +342,7 @@ export const Marketplace: React.FC = () => {
                             
                             <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
                                 <div className="font-bold text-indigo-600 text-lg">
-                                    🪙 {item.price}
+                                    ⭐ {item.price}
                                 </div>
                                 {(purchasedItems.find(i => i.id === item.id) || (item.type === 'course' && enrolledCourseIds.includes(item.id))) ? (
                                     <span className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center">
@@ -553,7 +555,7 @@ export const Marketplace: React.FC = () => {
                       <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
                           <div>
                               <p className="text-xs text-slate-500 uppercase font-bold">Price</p>
-                              <p className="text-2xl font-bold text-indigo-600">🪙 {selectedItem.price}</p>
+                              <p className="text-2xl font-bold text-indigo-600">⭐ {selectedItem.price}</p>
                           </div>
                           {(purchasedItems.find(i => i.id === selectedItem.id) || (selectedItem.type === 'course' && enrolledCourseIds.includes(selectedItem.id))) ? (
                               <button disabled className="flex-1 py-3 bg-green-100 text-green-700 rounded-xl font-bold flex items-center justify-center">
@@ -652,7 +654,7 @@ export const Marketplace: React.FC = () => {
                               </select>
                           </div>
                           <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Price (Coins)</label>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Price (Stars)</label>
                               <input 
                                 type="number"
                                 value={newListing.price || ''}

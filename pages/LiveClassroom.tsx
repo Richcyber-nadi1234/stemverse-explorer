@@ -499,7 +499,7 @@ export const LiveClassroom: React.FC = () => {
                 ) : viewMode === 'speaker' ? (
                     <div className="flex-1 flex flex-col gap-2 sm:gap-4">
                         <div className="flex-1">
-                             <div ref={jitsiContainerRef} className="w-full h-full rounded-2xl border border-slate-700 overflow-hidden bg-black" />
+                             <div ref={jitsiContainerRef} className="w-full h-full rounded-2xl border border-slate-700 overflow-hidden bg-black relative z-10" />
                         </div>
                         {/* Participant strip removed in favor of Jitsi tile view */}
                     </div>
@@ -507,7 +507,7 @@ export const LiveClassroom: React.FC = () => {
                     // Gallery Grid
                     <div className="h-full overflow-y-auto pr-1 custom-scrollbar">
                         <div className="w-full h-full">
-                            <div ref={jitsiContainerRef} className="w-full h-full rounded-2xl border border-slate-700 overflow-hidden bg-black" />
+                            <div ref={jitsiContainerRef} className="w-full h-full rounded-2xl border border-slate-700 overflow-hidden bg-black relative z-10" />
                         </div>
                     </div>
                 )}
@@ -515,8 +515,8 @@ export const LiveClassroom: React.FC = () => {
 
             {/* --- RIGHT SIDEBAR --- */}
             <div className={`
-                bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 shadow-2xl z-30 transition-all duration-300
-                ${sidebarView ? 'absolute inset-0 sm:static w-full sm:w-80' : 'w-0 overflow-hidden'}
+                bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 shadow-2xl z-20 transition-all duration-300
+                ${sidebarView ? 'absolute right-0 top-0 bottom-0 w-[85vw] sm:static sm:w-80' : 'w-0 sm:w-0'}
             `}>
                 {/* Sidebar Tabs */}
                 <div className="flex border-b border-slate-800 bg-slate-900/95 backdrop-blur">

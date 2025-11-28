@@ -1,6 +1,6 @@
 
 import React, { useContext, useState, useEffect } from 'react';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 import { Trophy, Zap, Star, Calendar, PlayCircle, Target, Award, Brain, BarChart2, Clock, CheckCircle, Medal, ArrowRight, Lock, Video, TrendingUp, BookOpen, Activity, ChevronRight, X, Gift } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -172,7 +172,7 @@ export const StudentDashboard: React.FC = () => {
                         
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                                <p className="text-indigo-600 font-bold text-xs uppercase">Coins</p>
+                                <p className="text-indigo-600 font-bold text-xs uppercase">Stars</p>
                                 <p className="text-xl font-extrabold text-indigo-900 flex items-center justify-center">
                                     +50 <Star className="w-4 h-4 ml-1 fill-indigo-900" />
                                 </p>

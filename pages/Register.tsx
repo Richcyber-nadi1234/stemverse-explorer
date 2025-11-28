@@ -1,7 +1,7 @@
 
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 import { User, UserRole } from '../types';
 import { Logo } from '../components/Logo';
 import { Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, Building2, GraduationCap, School, Phone, Upload, CheckCircle2, Info } from 'lucide-react';
@@ -117,10 +117,28 @@ export const Register: React.FC = () => {
       payload.verificationDocuments = uploadedDocs;
       
       // API Call
-      await api.post('/auth/register', payload);
+      const response = await api.post('/auth/register', payload);
+      const { access_token, user: userData } = response.data || {};
 
       setIsLoading(false);
       setSuccessMode(true);
+
+      // Auto login and redirect after brief success screen
+      setTimeout(() => {
+        if (access_token && userData) {
+          login(access_token, userData as any);
+          if ((userData.roles || []).includes(UserRole.STUDENT) && (userData.roles || []).length === 1) {
+            navigate('/student-dashboard');
+          } else if ((userData.roles || []).includes(UserRole.PARENT)) {
+            navigate('/parent-dashboard');
+          } else {
+            navigate('/dashboard');
+          }
+        } else {
+          // Fallback: go to login if token not provided
+          navigate('/login');
+        }
+      }, 900);
       
     } catch (err: any) {
         console.warn("Backend unavailable, using demo registration...", err);

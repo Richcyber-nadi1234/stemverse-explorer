@@ -1,7 +1,9 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Save, Plus, Trash, FileText, Video, GripVertical, Sparkles, Bot, X, Loader2, Check, Calendar, Award, AlertCircle, Image as ImageIcon, Film, Wand2, Play, Link as LinkIcon, Scissors, ListPlus, Upload, LayoutTemplate, Send } from 'lucide-react';
 import api from '../services/api';
-import { AuthContext, CourseContext, ToastContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
+import { CourseContext } from '../contexts/CourseContext';
+import { ToastContext } from '../contexts/ToastContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Course, Module, QuizQuestion } from '../types';
 
@@ -160,7 +162,7 @@ export const CourseStudio: React.FC = () => {
         title,
         description: description || 'No description provided.',
         thumbnail: thumbnail || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&q=80&w=400',
-        instructor: existingCourse.instructor || user?.first_name || 'Instructor',
+    instructor: existingCourse.instructor || user?.first_name || 'Instructor',
         progress: existingCourse.progress || 0,
         total_lessons: modules.length,
         completed_lessons: existingCourse.completed_lessons || 0,

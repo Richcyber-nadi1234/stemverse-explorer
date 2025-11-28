@@ -1,7 +1,7 @@
 
 import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 import { ArrowRight, BookOpen, Trophy, Video, Brain, School, Users, Star, CheckCircle2, Wallet, UploadCloud, Radio, Mail, Phone, MapPin, Send } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { UserRole } from '../types';

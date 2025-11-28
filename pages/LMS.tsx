@@ -3,7 +3,7 @@ import React, { useState, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, PlayCircle, Clock, BookOpen, Star, X, Users, Globe, GraduationCap, ChevronRight, CheckCircle2, LayoutGrid, List, ArrowRight, Radio } from 'lucide-react';
 import { Course } from '../types';
-import { CourseContext } from '../App';
+import { CourseContext } from '../contexts/CourseContext';
 import { CourseCard } from '../components/CourseCard';
 
 export const LMS: React.FC = () => {
@@ -210,7 +210,7 @@ export const LMS: React.FC = () => {
       {/* --- ENROLLMENT MODAL --- */}
       {selectedCourseForModal && (
         <div className="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[90vh] animate-in slide-in-from-bottom-8 duration-300 relative">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full flex flex-col md:flex-row md:max-h-[90vh] md:overflow-hidden overflow-y-auto scroll-smooth animate-in slide-in-from-bottom-8 duration-300 relative">
                 <button 
                     onClick={() => setSelectedCourseForModal(null)}
                     className="absolute top-4 right-4 z-20 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors backdrop-blur-md"
@@ -242,7 +242,7 @@ export const LMS: React.FC = () => {
                 
                 {/* Right: Details */}
                 <div className="w-full md:w-3/5 flex flex-col bg-white">
-                    <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="p-8 flex-1 overflow-y-auto custom-scrollbar overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                         <div className="space-y-8">
                             <div>
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Course Overview</h3>
@@ -298,7 +298,7 @@ export const LMS: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-6">
+                    <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-6 sticky bottom-0">
                         <div>
                             <p className="text-[10px] text-slate-500 font-bold uppercase">Total Price</p>
                             <p className="text-3xl font-bold text-slate-900">Free</p>

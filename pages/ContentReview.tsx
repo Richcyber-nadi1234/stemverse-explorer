@@ -1,6 +1,7 @@
 
 import React, { useContext, useState } from 'react';
-import { CourseContext, ToastContext } from '../App';
+import { CourseContext } from '../contexts/CourseContext';
+import { ToastContext } from '../contexts/ToastContext';
 import { CheckCircle, XCircle, Eye, BookOpen, User, Clock, AlertTriangle } from 'lucide-react';
 import { Course } from '../types';
 

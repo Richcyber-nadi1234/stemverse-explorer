@@ -1,6 +1,6 @@
 
 import React, { useContext, useState } from 'react';
-import { AuthContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
 import { User, Trophy, Star, Zap, Smile, Camera, Save, RefreshCw, Lock, Upload, Image as ImageIcon, Plus, X, Check, AlertTriangle } from 'lucide-react';
 
 const AVATAR_ACCESSORIES = [

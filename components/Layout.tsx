@@ -1,7 +1,8 @@
 
 import React, { useContext, useState, useRef, useEffect, useMemo } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { AuthContext, ToastContext } from '../App';
+import { AuthContext } from '../contexts/AuthContext';
+import { ToastContext } from '../contexts/ToastContext';
 import { 
   LayoutDashboard, 
   School, 

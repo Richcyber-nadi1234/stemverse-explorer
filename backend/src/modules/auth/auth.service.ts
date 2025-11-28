@@ -21,10 +21,17 @@ export class AuthService {
   }
 
   async login(user: any) {
-    const payload = { email: user.email, sub: user.id, roles: user.roles };
+    // Normalize user shape for frontend expectations
+    const safeUser = {
+      ...user,
+      first_name: (user as any).first_name ?? (user as any).firstName ?? null,
+      last_name: (user as any).last_name ?? (user as any).lastName ?? null,
+      roles: ((user as any).roles || []).map((r: string) => String(r).toLowerCase()),
+    };
+    const payload = { email: safeUser.email, sub: safeUser.id, roles: safeUser.roles };
     return {
       access_token: this.jwtService.sign(payload),
-      user: user
+      user: safeUser
     };
   }
 
@@ -52,8 +59,15 @@ export class AuthService {
         verificationStatus: verificationStatus
     });
     
-    // Return the user object (without password)
-    const { passwordHash, ...result } = user;
-    return { message: 'User registered successfully', user: result };
+    // Return the user object (without password) and issue token
+    const { passwordHash, ...result } = user as any;
+    const safeUser = {
+      ...result,
+      first_name: result.first_name ?? result.firstName ?? null,
+      last_name: result.last_name ?? result.lastName ?? null,
+      roles: (result.roles || []).map((r: string) => String(r).toLowerCase()),
+    };
+    const payload = { email: safeUser.email, sub: safeUser.id, roles: safeUser.roles };
+    return { message: 'User registered successfully', access_token: this.jwtService.sign(payload), user: safeUser };
   }
 }
