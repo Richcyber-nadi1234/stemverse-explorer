@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './modules/users/users.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { LiveModule } from './modules/live/live.module';
+import { ActivityModule } from './modules/activity/activity.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -20,6 +21,7 @@ import { AppController } from './app.controller';
     CoursesModule,
     AiModule,
     LiveModule,
+    ActivityModule,
   ],
   controllers: [AppController],
   providers: [],

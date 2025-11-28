@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { ToastContext } from '../contexts/ToastContext';
 import { AuthContext } from '../contexts/AuthContext';
+import api from '../services/api';
 import { UserRole } from '../types';
 
 // --- MOCK DATA ---
@@ -111,6 +112,29 @@ export const StudentReport: React.FC = () => {
       }
       return baseStudentData;
   });
+
+  // Activity timeline state sourced from backend
+  const [activityLog, setActivityLog] = useState<any[]>(student.activity_log || []);
+  const [activityLoading, setActivityLoading] = useState<boolean>(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
+  // Fetch activity for the current viewer or selected student when available
+  useEffect(() => {
+    const targetUserId = (location.state?.student && (location.state.student.user_id || location.state.student.id)) || user?.id;
+    if (!targetUserId) return; // No user id to query yet
+
+    setActivityLoading(true);
+    setActivityError(null);
+    api.get(`/activity/${targetUserId}`)
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : [];
+        setActivityLog(data);
+      })
+      .catch(() => {
+        setActivityError('Unable to load recent activity');
+      })
+      .finally(() => setActivityLoading(false));
+  }, [user?.id, location.state?.student]);
 
   const handlePrint = () => {
     showToast('Preparing document for printing...', 'info');
@@ -525,7 +549,16 @@ export const StudentReport: React.FC = () => {
               <BarChart2 className="w-5 h-5 mr-2 text-indigo-600" /> Activity Timeline
             </h3>
             <div className="space-y-4">
-              {student.activity_log.map((log: any) => (
+              {activityLoading && (
+                <div className="text-sm text-slate-500">Loading activity…</div>
+              )}
+              {!activityLoading && activityError && (
+                <div className="text-sm text-red-600">{activityError}</div>
+              )}
+              {!activityLoading && !activityError && activityLog.length === 0 && (
+                <div className="text-sm text-slate-500">No recent activity found.</div>
+              )}
+              {!activityLoading && !activityError && activityLog.length > 0 && activityLog.map((log: any) => (
                 <div key={log.id} className="flex items-start justify-between border border-slate-100 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
